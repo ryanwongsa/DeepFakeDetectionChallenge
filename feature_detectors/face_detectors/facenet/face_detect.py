@@ -29,7 +29,7 @@ class PNet(nn.Module):
         self.training = False
 
         if pretrained:
-            state_dict_path = 'pnet.pt'
+            state_dict_path = 'pretrained_models/pnet.pt'
             state_dict = torch.load(state_dict_path)
             self.load_state_dict(state_dict)
 
@@ -74,7 +74,7 @@ class RNet(nn.Module):
         self.training = False
 
         if pretrained:
-            state_dict_path = 'rnet.pt'
+            state_dict_path = 'pretrained_models/rnet.pt'
             state_dict = torch.load(state_dict_path)
             self.load_state_dict(state_dict)
 
@@ -127,7 +127,7 @@ class ONet(nn.Module):
         self.training = False
 
         if pretrained:
-            state_dict_path = 'onet.pt'
+            state_dict_path = 'pretrained_models/onet.pt'
             state_dict = torch.load(state_dict_path)
             self.load_state_dict(state_dict)
 
