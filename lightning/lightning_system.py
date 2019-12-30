@@ -1,5 +1,10 @@
 import os
-import wandb
+try:
+    from .wandb import WandbLogger
+    HAS_WANDB = True
+except ImportError:
+    HAS_WANDB = False
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -17,12 +22,14 @@ class LightningSystem(pl.LightningModule):
 
     def __init__(self):
         super(LightningSystem, self).__init__()
-        # wandb.init(project="test-project", sync_tensorboard=True)
+        if HAS_WANDB:
+            wandb.init(project="test-project", sync_tensorboard=True)
         self.face_img_size =64
         self.model = Net(self.face_img_size)
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.mtcnn = MTCNN(keep_all=False, device=device,thresholds=[0.6, 0.7, 0.7])
-        # wandb.watch(self.model)
+        if HAS_WANDB:
+            wandb.watch(self.model)
         self.criterion = nn.BCELoss()
         self.log_loss = nn.BCELoss()
 
