@@ -216,9 +216,8 @@ class MTCNN(nn.Module):
         # Process all bounding boxes and probabilities
         faces, probs = [], []
         for im, box_im, prob_im, path_im in zip(img, batch_boxes, batch_probs, save_path):
-            print(im.shape, len(box_im), len(prob_im))
             if box_im is None:
-                faces.append(None)
+                faces.append([None])
                 probs.append([None] if self.keep_all else None)
                 continue
 
@@ -267,16 +266,14 @@ class MTCNN(nn.Module):
 
         boxes, probs, points = [], [], []
         for box, point in zip(batch_boxes, batch_points):
-            # box = box.cpu().numpy()
-            # point = point.cpu().numpy()
+
             if len(box) == 0:
                 boxes.append(None)
                 probs.append([None])
-                points.append(None)
+                points.append([None])
             elif self.select_largest:
-                # box_order = np.argsort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]))[::-1]
                 _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]))
-                # print(box_order[::-1])
+
                 box_order = box_order[len(box_order)-1]
                 box = box[box_order]
                 point = point[box_order]
