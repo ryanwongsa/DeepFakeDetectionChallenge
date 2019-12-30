@@ -107,35 +107,35 @@ class LightningSystem(pl.LightningModule):
 
     @pl.data_loader
     def train_dataloader(self):
-        root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
-        metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
-        dataset = VideoDataset(root_dir, metadata_file)
-        dataloader = DataLoader(dataset,
+        train_root_dir = "/content/DeepFakeDetectionChallenge/dfdc_train_part_0"
+        train_metadata_file = "/content/DeepFakeDetectionChallenge/dfdc_train_part_0/metadata.json"
+        train_dataset = VideoDataset(train_root_dir, train_metadata_file, isBalanced=True)
+        train_dataloader = DataLoader(train_dataset,
                 batch_size= 2,
                 shuffle= True, 
                 num_workers= 2, 
-                collate_fn= dataset.collate_fn,
+                collate_fn= train_dataset.collate_fn,
                 pin_memory= True, 
                 drop_last = True,
-                worker_init_fn=dataset.init_workers_fn
+                worker_init_fn=train_dataset.init_workers_fn
             )
-        return dataloader
-
+        return train_dataloader
+                
     @pl.data_loader
     def val_dataloader(self):
-        root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
-        metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
-        dataset = VideoDataset(root_dir, metadata_file)
-        dataloader = DataLoader(dataset,
+        val_root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
+        val_metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
+        val_dataset = VideoDataset(val_root_dir, val_metadata_file)
+        val_dataloader = DataLoader(val_dataset,
                 batch_size= 2,
                 shuffle= False, 
                 num_workers= 2, 
-                collate_fn= dataset.collate_fn,
+                collate_fn= val_dataset.collate_fn,
                 pin_memory= True, 
                 drop_last = False,
-                worker_init_fn=dataset.init_workers_fn
+                worker_init_fn=val_dataset.init_workers_fn
             )
-        return dataloader
+        return val_dataloader
     
     @pl.data_loader
     def test_dataloader(self):

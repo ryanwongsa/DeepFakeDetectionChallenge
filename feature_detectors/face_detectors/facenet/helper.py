@@ -1,27 +1,21 @@
 import torch
-from torchvision.transforms import functional as F
 import numpy as np
 import os
 from collections.abc import Iterable
+from torchvision.ops.boxes import batched_nms, nms
+import torch.nn.functional as F
 
 def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
-    if not isinstance(imgs, Iterable):
-        imgs = [imgs]
-    if any(img.size != imgs[0].size for img in imgs):
-        raise Exception("MTCNN batch processing only compatible with equal-dimension images.")
-
-    imgs = [torch.as_tensor(np.uint8(img)).float().to(device) for img in imgs]
-    imgs = torch.stack(imgs).permute(0, 3, 1, 2)
 
     batch_size = len(imgs)
     h, w = imgs.shape[2:4]
-    m = 12.0 / minsize
+    m = 12.0 / minsize          # TODO: find out what m is?
     minl = min(h, w)
     minl = minl * m
 
     # First stage
     # Create scale pyramid
-    total_boxes_all = [np.empty((0, 9)) for i in range(batch_size)]
+    total_boxes_all = [[] for i in range(batch_size)]
     scale = m
     while minl >= 12:
         hs = int(h * scale + 1)
@@ -31,24 +25,27 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
         reg, probs = pnet(im_data)
 
         for b_i in range(batch_size):
-            boxes = generateBoundingBox(reg[b_i], probs[b_i, 1], scale, threshold[0]).numpy()
-
+            boxes = generateBoundingBox(reg[b_i], probs[b_i, 1], scale, threshold[0])
             # inter-scale nms
-            pick = nms(boxes, 0.5, "Union")
-            if boxes.size > 0 and pick.size > 0:
+            pick = nms(boxes[:,0:4], boxes[:,4], 0.5)
+            if boxes.shape[0] > 0 and pick.shape[0] > 0:
                 boxes = boxes[pick, :]
-                total_boxes_all[b_i] = np.append(total_boxes_all[b_i], boxes, axis=0)
+                total_boxes_all[b_i].append(boxes)
 
         scale = scale * factor
         minl = minl * factor
 
+    for index_i, boxes_i in enumerate(total_boxes_all):
+        boxes_tensor_i = torch.cat(boxes_i)
+        total_boxes_all[index_i] = boxes_tensor_i
+
     batch_boxes = []
     batch_points = []
     for img, total_boxes in zip(imgs, total_boxes_all):
-        points = np.zeros((2, 5, 0))
+        points = torch.zeros(2,5,0)
         numbox = total_boxes.shape[0]
         if numbox > 0:
-            pick = nms(total_boxes, 0.7, "Union")
+            pick = nms(total_boxes[:,0:4], total_boxes[:,4], 0.7)
             total_boxes = total_boxes[pick, :]
             regw = total_boxes[:, 2] - total_boxes[:, 0]
             regh = total_boxes[:, 3] - total_boxes[:, 1]
@@ -56,9 +53,12 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
             qq2 = total_boxes[:, 1] + total_boxes[:, 6] * regh
             qq3 = total_boxes[:, 2] + total_boxes[:, 7] * regw
             qq4 = total_boxes[:, 3] + total_boxes[:, 8] * regh
-            total_boxes = np.transpose(np.vstack([qq1, qq2, qq3, qq4, total_boxes[:, 4]]))
+
+            total_boxes = torch.stack([qq1, qq2, qq3, qq4, total_boxes[:, 4]],dim=0).T
+            
             total_boxes = rerec(total_boxes)
-            total_boxes[:, 0:4] = np.fix(total_boxes[:, 0:4]).astype(np.int32)
+            total_boxes[:, 0:4] = total_boxes[:, 0:4].round()
+
             y, ey, x, ex = pad(total_boxes, w, h)
 
         numbox = total_boxes.shape[0]
@@ -72,26 +72,31 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
             im_data = torch.cat(im_data, 0)
             im_data = (im_data - 127.5) * 0.0078125
             out = rnet(im_data)
+            out0 = out[0].T
+            out1 = out[1].T
 
-            out0 = np.transpose(out[0].numpy())
-            out1 = np.transpose(out[1].numpy())
             score = out1[1, :]
-            ipass = np.where(score > threshold[1])
-            total_boxes = np.hstack(
-                [total_boxes[ipass[0], 0:4].copy(), np.expand_dims(score[ipass].copy(), 1)]
+            ipass = torch.where(score > threshold[1])
+            
+            total_boxes = torch.cat(
+                [total_boxes[ipass[0], 0:4].clone(), score[ipass].clone().unsqueeze(1)], dim=1
             )
+            
             mv = out0[:, ipass[0]]
             if total_boxes.shape[0] > 0:
-                pick = nms(total_boxes, 0.7, "Union")
+                pick = nms(total_boxes[:,0:4], total_boxes[:,4], 0.7)
                 total_boxes = total_boxes[pick, :]
-                total_boxes = bbreg(total_boxes.copy(), np.transpose(mv[:, pick]))
-                total_boxes = rerec(total_boxes.copy())
+                
+                total_boxes = bbreg(total_boxes.clone(), mv[:, pick].T)
+                total_boxes = rerec(total_boxes.clone())
 
         numbox = total_boxes.shape[0]
         if numbox > 0:
             # third stage
-            total_boxes = np.fix(total_boxes).astype(np.int32)
-            y, ey, x, ex = pad(total_boxes.copy(), w, h)
+            # total_boxes = np.fix(total_boxes).astype(np.int32)
+            total_boxes = total_boxes.round()
+            y, ey, x, ex = pad(total_boxes.clone(), w, h)
+
             im_data = []
             for k in range(0, numbox):
                 if ey[k] > (y[k] - 1) and ex[k] > (x[k] - 1):
@@ -101,40 +106,40 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
             im_data = (im_data - 127.5) * 0.0078125
             out = onet(im_data)
 
-            out0 = np.transpose(out[0].numpy())
-            out1 = np.transpose(out[1].numpy())
-            out2 = np.transpose(out[2].numpy())
+            out0 =out[0].T
+            out1 = out[1].T
+            out2 = out[2].T
             score = out2[1, :]
             points = out1
-            ipass = np.where(score > threshold[2])
+            ipass = torch.where(score > threshold[2])
             points = points[:, ipass[0]]
-            total_boxes = np.hstack(
-                [total_boxes[ipass[0], 0:4].copy(), np.expand_dims(score[ipass].copy(), 1)]
+            
+            total_boxes = torch.cat(
+                [total_boxes[ipass[0], 0:4].clone(), score[ipass].clone().unsqueeze(1)], dim=1
             )
             mv = out0[:, ipass[0]]
 
             w_i = total_boxes[:, 2] - total_boxes[:, 0] + 1
             h_i = total_boxes[:, 3] - total_boxes[:, 1] + 1
             points_x = (
-                np.tile(w_i, (5, 1)) * points[0:5, :] + np.tile(total_boxes[:, 0], (5, 1)) - 1
+                w_i.repeat(5, 1) * points[0:5, :] + total_boxes[:, 0].repeat(5, 1) - 1
             )
             points_y = (
-                np.tile(h_i, (5, 1)) * points[5:10, :] + np.tile(total_boxes[:, 1], (5, 1)) - 1
+                h_i.repeat(5, 1) * points[5:10, :] + total_boxes[:, 1].repeat(5, 1) - 1
             )
-            points = np.stack((points_x, points_y), axis=0)
+            points = torch.stack([points_x, points_y], dim=0)
             if total_boxes.shape[0] > 0:
-                total_boxes = bbreg(total_boxes, np.transpose(mv))
-                pick = nms(total_boxes, 0.7, "Min")
+                total_boxes = bbreg(total_boxes, mv.T)
+                pick = nms(total_boxes[:,0:4],total_boxes[:,4], 0.7)
                 total_boxes = total_boxes[pick, :]
                 points = points[:, :, pick]
 
         batch_boxes.append(total_boxes)
-        batch_points.append(np.transpose(points))
+        batch_points.append(points.T)
+    return batch_boxes, batch_points
 
-    return np.array(batch_boxes), np.array(batch_points)
 
-
-def bbreg(boundingbox, reg):
+def bbreg_original(boundingbox, reg):
     if reg.shape[1] == 1:
         reg = np.reshape(reg, (reg.shape[2], reg.shape[3]))
 
@@ -145,6 +150,19 @@ def bbreg(boundingbox, reg):
     b3 = boundingbox[:, 2] + reg[:, 2] * w
     b4 = boundingbox[:, 3] + reg[:, 3] * h
     boundingbox[:, 0:4] = np.transpose(np.vstack([b1, b2, b3, b4]))
+    return boundingbox
+
+def bbreg(boundingbox, reg):
+    if reg.shape[1] == 1:
+        reg = reg.reshape((reg.shape[2], reg.shape[3]))
+
+    w = boundingbox[:, 2] - boundingbox[:, 0] + 1
+    h = boundingbox[:, 3] - boundingbox[:, 1] + 1
+    b1 = boundingbox[:, 0] + reg[:, 0] * w
+    b2 = boundingbox[:, 1] + reg[:, 1] * h
+    b3 = boundingbox[:, 2] + reg[:, 2] * w
+    b4 = boundingbox[:, 3] + reg[:, 3] * h
+    boundingbox[:, 0:4] = torch.stack([b1, b2, b3, b4],dim=0).T
     return boundingbox
 
 
@@ -162,7 +180,7 @@ def generateBoundingBox(reg, probs, scale, thresh):
     return boundingbox
 
 
-def nms(boxes, threshold, method):
+def nms_original(boxes, threshold, method):
     if boxes.size == 0:
         return np.empty((0, 3))
     x1 = boxes[:, 0]
@@ -195,7 +213,7 @@ def nms(boxes, threshold, method):
     return pick
 
 
-def pad(total_boxes, w, h):
+def pad_original(total_boxes, w, h):
     x = total_boxes[:, 0].copy().astype(np.int32)
     y = total_boxes[:, 1].copy().astype(np.int32)
     ex = total_boxes[:, 2].copy().astype(np.int32)
@@ -208,8 +226,29 @@ def pad(total_boxes, w, h):
 
     return y, ey, x, ex
 
+def pad(total_boxes, w, h):
+    x = total_boxes[:, 0].clone().type(torch.LongTensor)
+    y = total_boxes[:, 1].clone().type(torch.LongTensor)
+    ex = total_boxes[:, 2].clone().type(torch.LongTensor)
+    ey = total_boxes[:, 3].clone().type(torch.LongTensor)
+
+    x[torch.where(x < 1)] = 1
+    y[torch.where(y < 1)] = 1
+    ex[torch.where(ex > w)] = w
+    ey[torch.where(ey > h)] = h
+
+    return y, ey, x, ex
 
 def rerec(bboxA):
+    h = bboxA[:, 3] - bboxA[:, 1]
+    w = bboxA[:, 2] - bboxA[:, 0]
+    l = torch.max(w, h)
+    bboxA[:, 0] = bboxA[:, 0] + w * 0.5 - l * 0.5
+    bboxA[:, 1] = bboxA[:, 1] + h * 0.5 - l * 0.5
+    bboxA[:, 2:4] = bboxA[:, 0:2] + (l.repeat(2, 1)).T
+    return bboxA
+
+def rerec_original(bboxA):
     h = bboxA[:, 3] - bboxA[:, 1]
     w = bboxA[:, 2] - bboxA[:, 0]
     l = np.maximum(w, h)
@@ -241,24 +280,19 @@ def extract_face(img, box, image_size=160, margin=0, save_path=None):
     Returns:
         torch.tensor -- tensor representing the extracted face.
     """
-    margin = [
-        margin * (box[2] - box[0]) / (image_size - margin),
-        margin * (box[3] - box[1]) / (image_size - margin),
-    ]
-    box = [
-        int(max(box[0] - margin[0] / 2, 0)),
-        int(max(box[1] - margin[1] / 2, 0)),
-        int(min(box[2] + margin[0] / 2, img.size[0])),
-        int(min(box[3] + margin[1] / 2, img.size[1])),
-    ]
+    box = box.round().cpu().numpy().astype('int')
 
-    face = img.crop(box).resize((image_size, image_size), 2)
+    box_h_min = max(box[1] - margin // 2, 0)
+    box_w_min = max(box[0] - margin // 2, 0)
+    box_h_max = min(box[3] + margin // 2, img.shape[1])
+    box_w_max = min(box[2] + margin // 2, img.shape[2])
+    face = img[:, box_h_min:box_h_max,box_w_min:box_w_max]
 
-    if save_path is not None:
-        os.makedirs(os.path.dirname(save_path) + "/", exist_ok=True)
-        save_args = {"compress_level": 0} if ".png" in save_path else {}
-        face.save(save_path, **save_args)
+    # if save_path is not None:
+    #     os.makedirs(os.path.dirname(save_path) + "/", exist_ok=True)
+    #     save_args = {"compress_level": 0} if ".png" in save_path else {}
+    #     face.save(save_path, **save_args)
 
-    face = F.to_tensor(np.float32(face))
+    face = F.upsample(faces[0][0].unsqueeze(0), size=(image_size,image_size), mode='bilinear')
 
     return face
