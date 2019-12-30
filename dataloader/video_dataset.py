@@ -11,14 +11,19 @@ from PIL import Image
 import os
 
 class VideoDataset(Dataset):
-    def __init__(self, root_dir, metadata_file, transform=None):
-        self.root_dir = root_dir
+    def __init__(self, root_dir, metadata_file, transform=None, isBalanced=False):
+        self.root_dir = Path(root_dir)
 
-        self.list_videos = list(Path(self.root_dir).rglob('*.mp4'))
+        self.list_videos = list(self.root_dir.rglob('*.mp4'))
         if metadata_file == None:
           self.metadata = None
         else:
           self.metadata = json.load(open(metadata_file,'r'))
+        
+        self.isBalanced = isBalanced
+        if isBalanced:
+            self.fake_list = [key for key, val in self.metadata.items() if val['label']=='FAKE']
+            self.real_list = [key for key, val in self.metadata.items() if val['label']!='FAKE']
 
     def init_workers_fn(self, worker_id):
         new_seed = int.from_bytes(os.urandom(4), byteorder='little')
@@ -87,16 +92,29 @@ class VideoDataset(Dataset):
         return frame
 
     def __len__(self):
-        return len(self.list_videos)
+        if self.isBalanced:
+            return min(len(self.fake_list), len(self.real_list))*10
+        else:
+            return len(self.list_videos)
 
     def __getitem__(self, idx):
-        video_filename = self.list_videos[idx]
+        if self.isBalanced:
+            choice = np.random.randint(2)
+            if choice==0:
+                video_choice = np.random.randint(len(self.fake_list))
+                video_filename = self.fake_list[video_choice]
+            else:
+                video_choice = np.random.randint(len(self.real_list))
+                video_filename = self.real_list[video_choice]
+            video_filename = self.root_dir/video_filename
+        else:
+            video_filename = self.list_videos[idx]
+
         source_filename = f"{video_filename.stem}.mp4"
         video = self.readCenterFrame(video_filename)
 
         if self.metadata == None:
           return video,  source_filename
-
 
         video_metadata = self.metadata[source_filename]
         video_original_filename = video_metadata["original"] if "original" in video_metadata else None
