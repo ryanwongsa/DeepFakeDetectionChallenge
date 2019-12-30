@@ -1,6 +1,6 @@
 import os
 try:
-    from .wandb import WandbLogger
+    import wandb
     HAS_WANDB = True
 except ImportError:
     HAS_WANDB = False
@@ -24,10 +24,10 @@ class LightningSystem(pl.LightningModule):
         super(LightningSystem, self).__init__()
         if HAS_WANDB:
             wandb.init(project="test-project", sync_tensorboard=True)
-        self.face_img_size =64
+        self.face_img_size =128
         self.model = Net(self.face_img_size)
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.mtcnn = MTCNN(keep_all=False, device=device,thresholds=[0.6, 0.7, 0.7])
+        self.mtcnn = MTCNN(image_size=self.face_img_size, keep_all=False, device=device,thresholds=[0.6, 0.7, 0.7], select_largest=True, margin=20)
         if HAS_WANDB:
             wandb.watch(self.model)
         self.criterion = nn.BCELoss()
@@ -37,28 +37,36 @@ class LightningSystem(pl.LightningModule):
         return self.model(x)
 
     def detect_faces(self, videos):
-        boxes, probabilities = self.mtcnn.detect(videos.cpu().numpy())
-        face_imgs = torch.zeros(len(boxes),3,self.face_img_size,self.face_img_size)
-        for index, box in enumerate(boxes):
-            if box is not None:
-                box = box.astype('int')
-                xmin = max(box[0][0],0)
-                ymin = max(box[0][1],0)
-                xmax = min(box[0][2],videos[index].shape[1])
-                ymax = min(box[0][3],videos[index].shape[0])
-                face_img = videos[index][ymin:ymax,xmin:xmax]
-                face_img = F.interpolate(face_img.permute(2,0,1).type(torch.FloatTensor).unsqueeze(0), size=(self.face_img_size,self.face_img_size))[0]
+        faces, probs = self.mtcnn(videos.float().permute(0, 3, 1, 2), return_prob=True)
+        face_imgs = torch.zeros(len(faces),3,self.face_img_size,self.face_img_size).cuda()
+        for index, face in enumerate(faces):
+            f = face[0]
+            if f is not None:
+                temp = f[0]
             else:
-                # print("No face found")
-                face_img = torch.ones(3, self.face_img_size,self.face_img_size)*128
-            face_imgs[index] = face_img/256.0
+                temp = (torch.ones(3, self.face_img_size,self.face_img_size)*128).cuda()
+            face_imgs[index] = temp/256.0
+
+        # for index, box in enumerate(boxes):
+        #     if box is not None:
+        #         box = box.astype('int')
+        #         xmin = max(box[0][0],0)
+        #         ymin = max(box[0][1],0)
+        #         xmax = min(box[0][2],videos[index].shape[1])
+        #         ymax = min(box[0][3],videos[index].shape[0])
+        #         face_img = videos[index][ymin:ymax,xmin:xmax]
+        #         face_img = F.interpolate(face_img.permute(2,0,1).type(torch.FloatTensor).unsqueeze(0), size=(self.face_img_size,self.face_img_size))[0]
+        #     else:
+        #         # print("No face found")
+        #         face_img = torch.ones(3, self.face_img_size,self.face_img_size)*128
+        #     face_imgs[index] = face_img/256.0
         return face_imgs
 
     def training_step(self, batch, batch_idx):
         source_filenames, videos, labels, video_original_filenames = batch
         face_imgs = self.detect_faces(videos)
 
-        y_hat = self.forward(face_imgs.cuda())
+        y_hat = self.forward(face_imgs)
         loss = self.criterion(y_hat, torch.tensor(labels).type(torch.FloatTensor).cuda())
         tensorboard_logs = {'train_loss': loss}
         # wandb.log({"train_loss": loss})
@@ -68,7 +76,7 @@ class LightningSystem(pl.LightningModule):
         source_filenames, videos, labels, video_original_filenames = batch
         face_imgs = self.detect_faces(videos)
 
-        y_hat = self.forward(face_imgs.cuda()).detach().squeeze()
+        y_hat = self.forward(face_imgs).detach().squeeze()
 
         loss = self.log_loss(y_hat, torch.tensor(labels).type(torch.FloatTensor).cuda())*y_hat.shape[0]
         return {'val_loss': loss, 'total_items': y_hat.shape[0]}
@@ -82,7 +90,7 @@ class LightningSystem(pl.LightningModule):
         source_filenames, videos = batch
         face_imgs = self.detect_faces(videos)
 
-        y_hat = self.forward(face_imgs.cuda()).detach().squeeze()
+        y_hat = self.forward(face_imgs).detach().squeeze()
         predicted = y_hat.cpu().detach().numpy()
         list_submission = []
         for j in range(len(predicted)):
@@ -111,7 +119,7 @@ class LightningSystem(pl.LightningModule):
         train_metadata_file = "/content/DeepFakeDetectionChallenge/dfdc_train_part_0/metadata.json"
         train_dataset = VideoDataset(train_root_dir, train_metadata_file, isBalanced=True)
         train_dataloader = DataLoader(train_dataset,
-                batch_size= 2,
+                batch_size= 32,
                 shuffle= True, 
                 num_workers= 2, 
                 collate_fn= train_dataset.collate_fn,
@@ -120,14 +128,14 @@ class LightningSystem(pl.LightningModule):
                 worker_init_fn=train_dataset.init_workers_fn
             )
         return train_dataloader
-                
+
     @pl.data_loader
     def val_dataloader(self):
         val_root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
         val_metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
         val_dataset = VideoDataset(val_root_dir, val_metadata_file)
         val_dataloader = DataLoader(val_dataset,
-                batch_size= 2,
+                batch_size= 32,
                 shuffle= False, 
                 num_workers= 2, 
                 collate_fn= val_dataset.collate_fn,
@@ -142,7 +150,7 @@ class LightningSystem(pl.LightningModule):
         root_dir = "/content/DeepFakeDetectionChallenge/test_videos"
         dataset = VideoDataset(root_dir, None)
         dataloader = DataLoader(dataset,
-                batch_size= 2,
+                batch_size= 32,
                 shuffle= False, 
                 num_workers= 2, 
                 collate_fn= dataset.collate_fn,
