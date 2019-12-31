@@ -36,7 +36,10 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
         minl = minl * factor
 
     for index_i, boxes_i in enumerate(total_boxes_all):
-        boxes_tensor_i = torch.cat(boxes_i)
+        if len(boxes_i)>0:
+            boxes_tensor_i = torch.cat(boxes_i)
+        else:
+            boxes_tensor_i = torch.zeros(0,9)
         total_boxes_all[index_i] = boxes_tensor_i
 
     batch_boxes = []
