@@ -283,6 +283,9 @@ def extract_face(img, box, image_size=160, margin=0, save_path=None):
     Returns:
         torch.tensor -- tensor representing the extracted face.
     """
+
+    # TODO: Pad image with margin dimension so that the image will be scaled correctly
+
     box = box.round().cpu().numpy().astype('int')
 
     box_h_min = max(box[1] - margin // 2, 0)
@@ -297,5 +300,6 @@ def extract_face(img, box, image_size=160, margin=0, save_path=None):
     #     face.save(save_path, **save_args)
 
     face = F.upsample(face.unsqueeze(0), size=(image_size,image_size), mode='bilinear')
+    # TODO: Change to interpolate: F.interpolate(data, size=(64,84))
 
     return face

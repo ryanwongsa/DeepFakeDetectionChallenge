@@ -244,10 +244,6 @@ class MTCNN(nn.Module):
             
             faces.append(faces_im)
             probs.append(prob_im)
-        batch_mode = True
-        if not batch_mode:
-            faces = faces[0]
-            probs = probs[0]
 
         if return_prob:
             return faces, probs
