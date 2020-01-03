@@ -13,7 +13,7 @@ import os
 import torch.nn.functional as F
 
 class VideoDataset(Dataset):
-    def __init__(self, root_dir, metadata_file, transform=None, isBalanced=False):
+    def __init__(self, root_dir, metadata_file, transform=None, isBalanced=False, num_frames=20):
         self.root_dir = Path(root_dir)
 
         self.list_videos = list(self.root_dir.rglob('*.mp4'))
@@ -26,6 +26,8 @@ class VideoDataset(Dataset):
         if isBalanced:
             self.fake_list = [key for key, val in self.metadata.items() if val['label']=='FAKE']
             self.real_list = [key for key, val in self.metadata.items() if val['label']!='FAKE']
+
+        self.num_frames = num_frames
 
     def init_workers_fn(self, worker_id):
         new_seed = int.from_bytes(os.urandom(4), byteorder='little')
@@ -49,7 +51,7 @@ class VideoDataset(Dataset):
 
     def readVideo(self, videoFile):
         video, _, _ = torchvision.io.read_video(str(videoFile),pts_unit='sec')
-        num_frames = 20       # TODO: make the number of frames equivalent to 2 per second or something like that
+        num_frames = self.num_frames       # TODO: make the number of frames equivalent to 2 per second or something like that
         max_image_dim = 1920  # TODO: resize image if the max dimension is bigger than this
 
         total_frames = video.shape[0]
