@@ -16,7 +16,7 @@ from torchvision import transforms
 import pytorch_lightning as pl
 
 # from models.baseline.net import Net
-from models.efficientnet.model import EfficientNet
+from models.efficientnet.net import Net
 from feature_detectors.face_detectors.facenet.face_detect import MTCNN
 from dataloader.video_dataset import VideoDataset
 import pandas as pd
@@ -32,14 +32,17 @@ class LightningSystem(pl.LightningModule):
             wandb.init(project="test-project", sync_tensorboard=True)
         self.face_img_size = 300
         # self.model = Net(self.face_img_size)
-        self.model = EfficientNet.from_pretrained('efficientnet-b0')
+        self.model = Net('efficientnet-b0')
 
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.mtcnn = MTCNN(image_size=self.face_img_size, keep_all=False, device=device,thresholds=[0.6, 0.7, 0.7], select_largest=True, margin=20)
+        self.mtcnn.eval()
         if HAS_WANDB:
             wandb.watch(self.model)
         self.criterion = nn.BCELoss()
         self.log_loss = nn.BCELoss()
+
+        self.transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
     def forward(self, x):
         return self.model(x)
@@ -81,7 +84,7 @@ class LightningSystem(pl.LightningModule):
 
         videos_faces = self.transform_batch(videos_faces)
 
-        y_hat = self.forward(videos_faces)
+        y_hat = self.forward(videos_faces).squeeze()
         loss = self.criterion(y_hat, videos_labels)
 
         tensorboard_logs = {'train_loss': loss}
@@ -126,7 +129,7 @@ class LightningSystem(pl.LightningModule):
     #     return {}
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.0003)
+        return torch.optim.Adam(self.model.parameters(), lr=0.0003)
 
     @pl.data_loader
     def train_dataloader(self):

@@ -299,7 +299,8 @@ def extract_face(img, box, image_size=160, margin=0, save_path=None):
     #     save_args = {"compress_level": 0} if ".png" in save_path else {}
     #     face.save(save_path, **save_args)
 
-    face = F.upsample(face.unsqueeze(0), size=(image_size,image_size), mode='bilinear')
-    # TODO: Change to interpolate: F.interpolate(data, size=(64,84))
+    # face = F.upsample(face.unsqueeze(0), size=(image_size,image_size), mode='bilinear')
 
+    # TODO: Change to interpolate: F.interpolate(data, size=(64,84))
+    face = F.interpolate(face.unsqueeze(0), size=(image_size,image_size))
     return face
