@@ -34,7 +34,7 @@ class LightningSystem(pl.LightningModule):
         # self.model = Net(self.face_img_size)
         self.model = Net('efficientnet-b0')
 
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.mtcnn = MTCNN(image_size=self.face_img_size, keep_all=False, device=device,thresholds=[0.6, 0.7, 0.7], select_largest=True, margin=20)
         self.mtcnn.eval()
         if HAS_WANDB:
@@ -47,20 +47,24 @@ class LightningSystem(pl.LightningModule):
     def forward(self, x):
         return self.model(x)
 
-    def detect_faces(self, video, label):
+    def detect_faces(self, video, label=None):
         faces, _ = self.mtcnn(video.float(), return_prob=True)
         indices = [i for i, vf in enumerate(faces) if vf[0] is not None]
         faces = [vf for vf in faces if vf[0] is not None]
+        face_labels=None
         if len(faces)!=0:
-          faces = torch.stack(faces, dim=1).squeeze()
-          face_labels = label[indices]
+          # faces = torch.stack(faces, dim=1).squeeze()
+          faces = torch.cat(faces)
+          if label is not None:
+            face_labels = label[indices]
         else:
           faces = torch.zeros(0,3,self.face_img_size,self.face_img_size)
-          face_labels = torch.zeros(0,1)
+          if label is not None:
+            face_labels = torch.zeros(0,1)
         return faces, face_labels
 
     def transform_batch(self, videos):
-        videos = torch.stack([self.transform(video/256.0) for video in videos])
+        videos = torch.stack([self.transform(video/255.0) for video in videos])
         return videos
 
     def training_step(self, batch, batch_idx):
@@ -90,46 +94,71 @@ class LightningSystem(pl.LightningModule):
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
-    # def validation_step(self, batch, batch_idx):
-    #     source_filenames, videos, labels, video_original_filenames = batch
-    #     face_imgs = self.detect_faces(videos)
+    def validation_step(self, batch, batch_idx):
+        source_filenames, videos, labels, video_original_filenames = batch
+        total_loss = 0.0
+        total_logloss = 0.0
+        for video, label in zip(videos, labels):
+          video_label = label[0]
+          
+          faces, face_labels = self.detect_faces(video, label)
+          if len(faces)>0:
+            faces = self.transform_batch(faces)
 
-    #     y_hat = self.forward(face_imgs).detach().squeeze()
+            y_hat = self.forward(faces).squeeze()
 
-    #     loss = self.log_loss(y_hat, torch.tensor(labels).type(torch.FloatTensor).cuda())*y_hat.shape[0]
-    #     return {'val_loss': loss, 'total_items': y_hat.shape[0]}
+            loss = self.criterion(y_hat, face_labels)
+            total_loss += loss
+            logloss = self.log_loss(y_hat.mean(), video_label)
+            total_logloss += logloss 
+          else:
+            total_loss += 0.7
+            total_logloss += 0.7 
 
-    # def validation_end(self, outputs):
-    #     loss = torch.stack([x['val_loss'] for x in outputs]).sum()
-    #     loss /=torch.tensor([x['total_items'] for x in outputs]).sum()
-    #     return {'val_loss': loss, 'log': {'val_loss': loss}}
+        avg_loss = total_loss / len(videos)
+        avg_logloss = total_logloss / len(videos)
+        return {'val_loss': avg_loss, 'logloss':avg_logloss}
 
-    # def test_step(self, batch, batch_idx):
-    #     source_filenames, videos = batch
-    #     face_imgs = self.detect_faces(videos)
+    def validation_end(self, outputs):
+        loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        logloss = torch.tensor([x['logloss'] for x in outputs]).mean()
+        return {'val_loss': loss, 'logloss': logloss, 'log': {'val_loss': loss, 'logloss':logloss}}
 
-    #     y_hat = self.forward(face_imgs).detach().squeeze()
-    #     predicted = y_hat.cpu().detach().numpy()
-    #     list_submission = []
-    #     for j in range(len(predicted)):
-    #       dict_solution = {
-    #           "filename":source_filenames[j],
-    #           "label": predicted[j]
-    #       }
-    #       list_submission.append(dict_solution)
-    #     return {'submission_batch': list_submission}
+    def test_step(self, batch, batch_idx):
+        source_filenames, videos = batch
 
-    # def test_end(self, outputs):
-    #     list_submission = []
+        list_submission = []
+        for source_filename, video in zip(source_filenames,videos):
+            faces, _ = self.detect_faces(video)
+            if len(faces)>0:
+              faces = self.transform_batch(faces)
 
-    #     for output in outputs:
-    #         list_submission += output["submission_batch"]
-    #     df = pd.DataFrame(list_submission)
-    #     df.to_csv("submission.csv", index=False)
-    #     return {}
+              y_hat = self.forward(faces).squeeze()
+
+              dict_solution = {
+                  "filename":source_filename,
+                  "label": float(y_hat.mean().cpu().detach().numpy())
+              }
+              list_submission.append(dict_solution)
+            else:
+              dict_solution = {
+                  "filename":source_filename,
+                  "label": 0.5
+              }
+              list_submission.append(dict_solution)
+        return {'submission_batch': list_submission}
+
+    def test_end(self, outputs):
+        list_submission = []
+
+        for output in outputs:
+            list_submission += output["submission_batch"]
+        df = pd.DataFrame(list_submission)
+        df.to_csv("submission.csv", index=False)
+        return {}
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=0.0003)
+        return torch.optim.Adam(self.model.parameters(), lr=0.003)
 
     @pl.data_loader
     def train_dataloader(self):
@@ -147,33 +176,33 @@ class LightningSystem(pl.LightningModule):
             )
         return train_dataloader
 
-    # @pl.data_loader
-    # def val_dataloader(self):
-    #     val_root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
-    #     val_metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
-    #     val_dataset = VideoDataset(val_root_dir, val_metadata_file)
-    #     val_dataloader = DataLoader(val_dataset,
-    #             batch_size= 8,
-    #             shuffle= False, 
-    #             num_workers= 2, 
-    #             collate_fn= val_dataset.collate_fn,
-    #             pin_memory= True, 
-    #             drop_last = False,
-    #             worker_init_fn=val_dataset.init_workers_fn
-    #         )
-    #     return val_dataloader
+    @pl.data_loader
+    def val_dataloader(self):
+        val_root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
+        val_metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
+        val_dataset = VideoDataset(val_root_dir, val_metadata_file)
+        val_dataloader = DataLoader(val_dataset,
+                batch_size= 8,
+                shuffle= False, 
+                num_workers= 2, 
+                collate_fn= val_dataset.collate_fn,
+                pin_memory= True, 
+                drop_last = False,
+                worker_init_fn=val_dataset.init_workers_fn
+            )
+        return val_dataloader
     
-    # @pl.data_loader
-    # def test_dataloader(self):
-    #     root_dir = "/content/DeepFakeDetectionChallenge/test_videos"
-    #     dataset = VideoDataset(root_dir, None)
-    #     dataloader = DataLoader(dataset,
-    #             batch_size= 8,
-    #             shuffle= False, 
-    #             num_workers= 2, 
-    #             collate_fn= dataset.collate_fn,
-    #             pin_memory= True, 
-    #             drop_last = False,
-    #             worker_init_fn=dataset.init_workers_fn
-    #         )
-    #     return dataloader
+    @pl.data_loader
+    def test_dataloader(self):
+        root_dir = "/content/DeepFakeDetectionChallenge/test_videos"
+        dataset = VideoDataset(root_dir, None)
+        dataloader = DataLoader(dataset,
+                batch_size= 8,
+                shuffle= False, 
+                num_workers= 2, 
+                collate_fn= dataset.collate_fn,
+                pin_memory= True, 
+                drop_last = False,
+                worker_init_fn=dataset.init_workers_fn
+            )
+        return dataloader
