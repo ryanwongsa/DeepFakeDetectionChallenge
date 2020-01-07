@@ -161,7 +161,8 @@ class MTCNN(nn.Module):
     def __init__(
         self, image_size=160, margin=0, min_face_size=20,
         thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
-        select_largest=True, keep_all=False, device=None
+        select_largest=True, keep_all=False, device=None, 
+        pnet_pth='pretrained_models/pnet.pt', rnet_pth='pretrained_models/rnet.pt', onet_pth='pretrained_models/onet.pt'
     ):
         super().__init__()
 
@@ -174,9 +175,9 @@ class MTCNN(nn.Module):
         self.select_largest = select_largest
         self.keep_all = keep_all
 
-        self.pnet = PNet()
-        self.rnet = RNet()
-        self.onet = ONet()
+        self.pnet = PNet(pretrained_path=pnet_pth)
+        self.rnet = RNet(pretrained_path=rnet_pth)
+        self.onet = ONet(pretrained_path=onet_pth)
 
         self.device = torch.device('cpu')
         if device is not None:

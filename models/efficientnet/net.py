@@ -4,11 +4,12 @@ from models.efficientnet.model import EfficientNet
 from models.efficientnet.utils import round_filters
 
 class Net(nn.Module):
-    def __init__(self, model_name = 'efficientnet-b0'):
+    def __init__(self, model_name = 'efficientnet-b0', isPretrained=True):
         super(Net, self).__init__()
-
-        self.efficient_net = EfficientNet.from_pretrained(model_name)
-
+        if isPretrained==True:
+            self.efficient_net = EfficientNet.from_pretrained(model_name)
+        else:
+            self.efficient_net = EfficientNet.from_name(model_name)
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
         self._dropout = nn.Dropout(self.efficient_net._global_params.dropout_rate)
 
