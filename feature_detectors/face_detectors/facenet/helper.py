@@ -267,26 +267,13 @@ def imresample(img, sz):
     return im_data
 
 
-def extract_face(img, box, image_size=160, margin=0, save_path=None):
-    """Extract face + margin from PIL Image given bounding box.
-    
-    Arguments:
-        img {PIL.Image} -- A PIL Image.
-        box {numpy.ndarray} -- Four-element bounding box.
-        image_size {int} -- Output image size in pixels. The image will be square.
-        margin {int} -- Margin to add to bounding box, in terms of pixels in the final image. 
-            Note that the application of the margin differs slightly from the davidsandberg/facenet
-            repo, which applies the margin to the original image before resizing, making the margin
-            dependent on the original image size.
-        save_path {str} -- Save path for extracted face image. (default: {None})
-    
-    Returns:
-        torch.tensor -- tensor representing the extracted face.
-    """
-
+def extract_face(img, box, image_size=160, margin=0, device=None):
     # TODO: Pad image with margin dimension so that the image will be scaled correctly
-
-    box = box.round().cpu().numpy().astype('int')
+    # TODO: Fix this so it runs only on GPU
+    if device == 'cpu':
+        box = box.round().numpy().astype('int')
+    else:
+        box = box.round().cpu().numpy().astype('int')
 
     box_h_min = max(box[1] - margin // 2, 0)
     box_w_min = max(box[0] - margin // 2, 0)
@@ -294,13 +281,5 @@ def extract_face(img, box, image_size=160, margin=0, save_path=None):
     box_w_max = min(box[2] + margin // 2, img.shape[2])
     face = img[:, box_h_min:box_h_max,box_w_min:box_w_max]
 
-    # if save_path is not None:
-    #     os.makedirs(os.path.dirname(save_path) + "/", exist_ok=True)
-    #     save_args = {"compress_level": 0} if ".png" in save_path else {}
-    #     face.save(save_path, **save_args)
-
-    # face = F.upsample(face.unsqueeze(0), size=(image_size,image_size), mode='bilinear')
-
-    # TODO: Change to interpolate: F.interpolate(data, size=(64,84))
     face = F.interpolate(face.unsqueeze(0), size=(image_size,image_size))
     return face

@@ -18,9 +18,9 @@ class VideoDataset(Dataset):
 
         self.list_videos = list(self.root_dir.rglob('*.mp4'))
         if metadata_file == None:
-          self.metadata = None
+            self.metadata = None
         else:
-          self.metadata = json.load(open(metadata_file,'r'))
+            self.metadata = json.load(open(metadata_file,'r'))
         
         self.isBalanced = isBalanced
         if isBalanced:
@@ -35,9 +35,9 @@ class VideoDataset(Dataset):
 
     def collate_fn(self, samples):
         if self.metadata == None:
-          videos, source_filenames = zip(*samples)
-          videos = torch.stack(videos, 0)
-          return source_filenames, videos
+            videos, source_filenames = zip(*samples)
+            videos = torch.stack(videos, 0)
+            return source_filenames, videos
 
         videos, source_filenames, labels, video_original_filenames = zip(*samples)
 
@@ -81,14 +81,14 @@ class VideoDataset(Dataset):
         for f in range(fcount):
             grabbed = cap.grab()
             if f in selected_frames:
-              ret, frame = cap.retrieve()
-              if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                ret, frame = cap.retrieve()
+                if ret:
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                frame = torch.from_numpy(frame)
-                frame = frame.permute(2, 0, 1)
-                frames[counter, :, :, :] = frame
-                counter += 1
+                    frame = torch.from_numpy(frame)
+                    frame = frame.permute(2, 0, 1)
+                    frames[counter, :, :, :] = frame
+                    counter += 1
         max_dim = max([height, width, max_image_dim])
         diff_height = (max_dim-height)//2
         diff_width = (max_dim-width)//2
@@ -120,18 +120,18 @@ class VideoDataset(Dataset):
         video_metadata = self.metadata[source_filename]
 
         if "data_dir" in video_metadata:
-          video_filename = Path(video_metadata["data_dir"])/source_filename
+            video_filename = Path(video_metadata["data_dir"])/source_filename
 
         video = self.readVideo_cv2(video_filename)
 
         if self.metadata == None:
-          return video, source_filename
+            return video, source_filename
 
         video_original_filename = video_metadata["original"] if "original" in video_metadata else None
 
         if video_metadata["label"] == 'FAKE':
-          labels = torch.ones(video.shape[0])
+            labels = torch.ones(video.shape[0])
         else:
-          labels = torch.zeros(video.shape[0])
+            labels = torch.zeros(video.shape[0])
 
         return video, source_filename, labels, video_original_filename
