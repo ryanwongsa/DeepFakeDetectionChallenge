@@ -7,11 +7,13 @@ import cv2
 import numpy as np
 import random
 from PIL import Image
+import math
 
 import os
+import torch.nn.functional as F
 
 class VideoDataset(Dataset):
-    def __init__(self, root_dir, metadata_file, transform=None, isBalanced=False):
+    def __init__(self, root_dir, metadata_file, transform=None, isBalanced=False, num_frames=20):
         self.root_dir = Path(root_dir)
 
         self.list_videos = list(self.root_dir.rglob('*.mp4'))
@@ -25,6 +27,8 @@ class VideoDataset(Dataset):
             self.fake_list = [key for key, val in self.metadata.items() if val['label']=='FAKE']
             self.real_list = [key for key, val in self.metadata.items() if val['label']!='FAKE']
 
+        self.num_frames = num_frames
+
     def init_workers_fn(self, worker_id):
         new_seed = int.from_bytes(os.urandom(4), byteorder='little')
         np.random.seed(new_seed)
@@ -36,60 +40,62 @@ class VideoDataset(Dataset):
           return source_filenames, videos
 
         videos, source_filenames, labels, video_original_filenames = zip(*samples)
-        labels = [1 if x=="FAKE" else 0 for x in labels]
+
+        # TODO: Image Resizing here
+        # for index, video in enumerate(videos):
+
+        labels = torch.stack(labels, 0)
+
         videos = torch.stack(videos, 0)
         return source_filenames, videos, labels, video_original_filenames
 
     def readVideo(self, videoFile):
-        cap = cv2.VideoCapture(str(videoFile))
-        cap.set(cv2.CAP_PROP_FPS, 30)
+        video, _, _ = torchvision.io.read_video(str(videoFile),pts_unit='sec')
+        max_image_dim = 1920  # TODO: resize image if the max dimension is bigger than this
 
+        total_frames = video.shape[0]
+        selected_frames = list(range(0,total_frames,math.ceil(total_frames/self.num_frames)))
+        video = video[selected_frames]
+        video = video.permute(0, 3, 1, 2)
+        height_img = video.shape[2]
+        width_img = video.shape[3]
+        max_dim = max([height_img, width_img, max_image_dim])
+        diff_height = (max_dim-height_img)//2
+        diff_width = (max_dim-width_img)//2
+        p2d = (diff_width, diff_width, diff_height, diff_height)
+        video = F.pad(video, p2d, 'constant', 0)
+
+        return video
+
+    def readVideo_cv2(self, videoFile):
+        cap = cv2.VideoCapture(str(videoFile))
+        max_image_dim = 1920
+        
         width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = int(cap.get(cv2.CAP_PROP_FPS))
         fcount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        height, width = 300, 300
-
-        frames = torch.FloatTensor(3, fcount, height, width)
-        rng_choice = random.randint(0, fcount)
-        for f in range(fcount):
-            ret, frame = cap.read()
-            if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                Image.fromarray(frame.astype('uint8'))
-                frame = cv2.resize(frame, (width, height)) 
-                frame = torch.from_numpy(frame)
-                frame = frame.permute(2, 0, 1)
-                frames[:, f, :, :] = frame
-
-        return frames
-
-    def readCenterFrame(self, videoFile):
-        cap = cv2.VideoCapture(str(videoFile))
-        cap.set(cv2.CAP_PROP_FPS, 30)
-
-        width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        fcount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        height, width = 580, 580
-
-        rng_choice = fcount//2
+        selected_frames = list(range(0,fcount,math.ceil(fcount/self.num_frames)))
+        frames = torch.FloatTensor(len(selected_frames), 3, height, width)
+        counter = 0
         for f in range(fcount):
             grabbed = cap.grab()
-            if f == rng_choice:
+            if f in selected_frames:
               ret, frame = cap.retrieve()
               if ret:
-                  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                  # frame = Image.fromarray(frame.astype('uint8')[0])
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                  frame = cv2.resize(frame, (width, height)) 
-                  frame = torch.from_numpy(frame)
-                  # frame = frame.permute(2, 0, 1)
+                frame = torch.from_numpy(frame)
+                frame = frame.permute(2, 0, 1)
+                frames[counter, :, :, :] = frame
+                counter += 1
+        max_dim = max([height, width, max_image_dim])
+        diff_height = (max_dim-height)//2
+        diff_width = (max_dim-width)//2
+        p2d = (diff_width, diff_width, diff_height, diff_height)
+        frames = F.pad(frames, p2d, 'constant', 0)
 
-        return frame
+        return frames
 
     def __len__(self):
         if self.isBalanced:
@@ -109,13 +115,23 @@ class VideoDataset(Dataset):
             video_filename = self.root_dir/video_filename
         else:
             video_filename = self.list_videos[idx]
-
+        
         source_filename = f"{video_filename.stem}.mp4"
-        video = self.readCenterFrame(video_filename)
+        video_metadata = self.metadata[source_filename]
+
+        if "data_dir" in video_metadata:
+          video_filename = Path(video_metadata["data_dir"])/source_filename
+
+        video = self.readVideo_cv2(video_filename)
 
         if self.metadata == None:
-          return video,  source_filename
+          return video, source_filename
 
-        video_metadata = self.metadata[source_filename]
         video_original_filename = video_metadata["original"] if "original" in video_metadata else None
-        return video, source_filename, video_metadata["label"], video_original_filename
+
+        if video_metadata["label"] == 'FAKE':
+          labels = torch.ones(video.shape[0])
+        else:
+          labels = torch.zeros(video.shape[0])
+
+        return video, source_filename, labels, video_original_filename
