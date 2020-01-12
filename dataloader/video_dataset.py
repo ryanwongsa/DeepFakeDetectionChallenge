@@ -51,11 +51,10 @@ class VideoDataset(Dataset):
 
     def readVideo(self, videoFile):
         video, _, _ = torchvision.io.read_video(str(videoFile),pts_unit='sec')
-        num_frames = self.num_frames       # TODO: make the number of frames equivalent to 2 per second or something like that
         max_image_dim = 1920  # TODO: resize image if the max dimension is bigger than this
 
         total_frames = video.shape[0]
-        selected_frames = list(range(0,total_frames,math.ceil(total_frames/num_frames)))
+        selected_frames = list(range(0,total_frames,math.ceil(total_frames/self.num_frames)))
         video = video[selected_frames]
         video = video.permute(0, 3, 1, 2)
         height_img = video.shape[2]
@@ -67,6 +66,36 @@ class VideoDataset(Dataset):
         video = F.pad(video, p2d, 'constant', 0)
 
         return video
+
+    def readVideo_cv2(self, videoFile):
+        cap = cv2.VideoCapture(str(videoFile))
+        max_image_dim = 1920
+        
+        width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        fcount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        selected_frames = list(range(0,fcount,math.ceil(fcount/self.num_frames)))
+        frames = torch.FloatTensor(len(selected_frames), 3, height, width)
+        counter = 0
+        for f in range(fcount):
+            grabbed = cap.grab()
+            if f in selected_frames:
+              ret, frame = cap.retrieve()
+              if ret:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                frame = torch.from_numpy(frame)
+                frame = frame.permute(2, 0, 1)
+                frames[counter, :, :, :] = frame
+                counter += 1
+        max_dim = max([height, width, max_image_dim])
+        diff_height = (max_dim-height)//2
+        diff_width = (max_dim-width)//2
+        p2d = (diff_width, diff_width, diff_height, diff_height)
+        frames = F.pad(frames, p2d, 'constant', 0)
+
+        return frames
 
     def __len__(self):
         if self.isBalanced:
@@ -86,14 +115,18 @@ class VideoDataset(Dataset):
             video_filename = self.root_dir/video_filename
         else:
             video_filename = self.list_videos[idx]
-
+        
         source_filename = f"{video_filename.stem}.mp4"
-        video = self.readVideo(video_filename)
+        video_metadata = self.metadata[source_filename]
+
+        if "data_dir" in video_metadata:
+          video_filename = Path(video_metadata["data_dir"])/source_filename
+
+        video = self.readVideo_cv2(video_filename)
 
         if self.metadata == None:
-          return video,  source_filename
+          return video, source_filename
 
-        video_metadata = self.metadata[source_filename]
         video_original_filename = video_metadata["original"] if "original" in video_metadata else None
 
         if video_metadata["label"] == 'FAKE':

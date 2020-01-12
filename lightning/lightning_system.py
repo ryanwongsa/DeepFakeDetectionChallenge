@@ -5,8 +5,6 @@ try:
 except ImportError:
     HAS_WANDB = False
 
-# HAS_WANDB = False
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -122,7 +120,7 @@ class LightningSystem(pl.LightningModule):
     def validation_end(self, outputs):
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         logloss = torch.tensor([x['logloss'] for x in outputs]).mean()
-        return {'val_loss': loss, 'logloss': logloss, 'log': {'val_loss': loss, 'logloss':logloss}}
+        return {'val_loss': loss, 'logloss': logloss, 'log': {'val_loss': loss, 'logloss':logloss}, 'progress_bar': {'val_loss': loss, 'logloss':logloss}}
 
     def test_step(self, batch, batch_idx):
         source_filenames, videos = batch
