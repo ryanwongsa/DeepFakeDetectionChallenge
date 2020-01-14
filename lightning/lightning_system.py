@@ -24,13 +24,13 @@ class LightningSystem(pl.LightningModule):
         super(LightningSystem, self).__init__()
         
         # -------------PARAMETERS--------------
-        wandb_project_name = "test-project"
+        wandb_project_name = "deepfake-detection-competition"
         
         # model parameters
         network_name = 'efficientnet-b0'
         
         # face detection parameters
-        face_img_size = 128
+        face_img_size = 300
         face_keep_all = False
         face_thresholds = [0.6, 0.7, 0.7]
         face_select_largest = True
