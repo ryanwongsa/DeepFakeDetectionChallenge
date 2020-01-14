@@ -35,25 +35,30 @@ class VideoDataset(Dataset):
         np.random.seed(new_seed)
 
     def collate_fn(self, samples):
-        if self.metadata == None:
-            videos, source_filenames = zip(*samples)
+        try:
+            if self.metadata == None:
+                videos, source_filenames = zip(*samples)
+                videos = torch.stack(videos, 0)
+                return source_filenames, videos
+
+            videos, source_filenames, labels, video_original_filenames = zip(*samples)
+
+            # TODO: Image Resizing here
+            # for index, video in enumerate(videos):
+
+            labels = torch.stack(labels, 0)
+
             videos = torch.stack(videos, 0)
-            return source_filenames, videos
-
-        videos, source_filenames, labels, video_original_filenames = zip(*samples)
-
-        # TODO: Image Resizing here
-        # for index, video in enumerate(videos):
-
-        labels = torch.stack(labels, 0)
-
-        videos = torch.stack(videos, 0)
-        return source_filenames, videos, labels, video_original_filenames
+            return source_filenames, videos, labels, video_original_filenames
+        except Exception as e:
+            print("collate exception: ", e)
+            videos, source_filenames = zip(*samples)
+            for i in len(videos):
+                print(source_filenames[i], videos[i].shape)
 
     def readVideo(self, videoFile):
         video, _, _ = torchvision.io.read_video(str(videoFile),pts_unit='sec')
         max_image_dim = 1920  # TODO: resize image if the max dimension is bigger than this
-
         total_frames = video.shape[0]
         selected_frames = list(range(0,total_frames,math.ceil(total_frames/self.num_frames)))
         video = video[selected_frames]
@@ -65,7 +70,7 @@ class VideoDataset(Dataset):
         diff_width = (max_dim-width_img)//2
         p2d = (diff_width, diff_width, diff_height, diff_height)
         video = F.pad(video, p2d, 'constant', 0)
-
+        
         return video
 
     def readVideo_cv2(self, videoFile):
@@ -96,7 +101,9 @@ class VideoDataset(Dataset):
             diff_width = (max_dim-width)//2
             p2d = (diff_width, diff_width, diff_height, diff_height)
             frames = F.pad(frames, p2d, 'constant', 0)
-
+            if frames.shape[2]!=max_image_dim or frames.shape[3]!=max_image_dim:
+                print("outofbounds:", str(videoFile), (height, width))
+                frames = F.interpolate(frames, size=(max_image_dim, max_image_dim))
             return frames
         except Exception as e:
             print(e)
