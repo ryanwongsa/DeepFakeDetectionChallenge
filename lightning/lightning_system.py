@@ -30,7 +30,7 @@ class LightningSystem(pl.LightningModule):
         network_name = 'efficientnet-b0'
         
         # face detection parameters
-        face_img_size = 64
+        face_img_size = 300
         face_keep_all = False
         face_thresholds = [0.6, 0.7, 0.7]
         face_select_largest = True
@@ -159,7 +159,7 @@ class LightningSystem(pl.LightningModule):
         train_dataset = VideoDataset(self.train_root_dir, self.train_metadata_file, isBalanced=self.isBalanced, num_frames=self.num_frames)
         train_dataloader = DataLoader(train_dataset,
                 batch_size= self.bs,
-                shuffle= False, 
+                shuffle= True, 
                 num_workers= self.num_workers, 
                 collate_fn= train_dataset.collate_fn,
                 pin_memory= True, 

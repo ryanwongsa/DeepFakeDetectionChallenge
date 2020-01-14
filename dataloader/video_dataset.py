@@ -16,11 +16,12 @@ class VideoDataset(Dataset):
     def __init__(self, root_dir, metadata_file, transform=None, isBalanced=False, num_frames=20):
         self.root_dir = Path(root_dir)
 
-        self.list_videos = list(self.root_dir.rglob('*.mp4'))
         if metadata_file == None:
+            self.list_videos = list(self.root_dir.rglob('*.mp4'))
             self.metadata = None
         else:
             self.metadata = json.load(open(metadata_file,'r'))
+            self.list_videos = list(self.metadata.keys())
         
         self.isBalanced = isBalanced
         if isBalanced:
@@ -99,9 +100,11 @@ class VideoDataset(Dataset):
 
     def __len__(self):
         if self.isBalanced:
-            return min(len(self.fake_list), len(self.real_list))*10
-        else:
+            return min(len(self.fake_list), len(self.real_list))*2
+        elif self.metadata is None:
             return len(self.list_videos)
+        else:
+            return len(self.metadata)
 
     def __getitem__(self, idx):
         if self.isBalanced:
@@ -114,7 +117,10 @@ class VideoDataset(Dataset):
                 video_filename = self.real_list[video_choice]
             video_filename = self.root_dir/video_filename
         else:
-            video_filename = self.list_videos[idx]
+            if type(self.list_videos[idx]) == str:
+                video_filename = Path(self.list_videos[idx])
+            else:
+                video_filename = self.list_videos[idx]
         
         source_filename = f"{video_filename.stem}.mp4"
         video_metadata = self.metadata[source_filename]
