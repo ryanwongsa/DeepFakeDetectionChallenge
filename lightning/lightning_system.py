@@ -30,28 +30,28 @@ class LightningSystem(pl.LightningModule):
         network_name = 'efficientnet-b0'
         
         # face detection parameters
-        face_img_size = 300
+        face_img_size = 128
         face_keep_all = False
         face_thresholds = [0.6, 0.7, 0.7]
         face_select_largest = True
-        face_margin = 20
+        face_margin = 10
         
         # dataloader parameters
-        self.bs = 2
-        self.num_workers = 0
-        self.num_frames = 5
+        self.bs = 8
+        self.num_workers = 4
+        self.num_frames = 10
         
-        self.train_root_dir = "../dataset/dfdc_train_part_5"
-        self.train_metadata_file = "../dataset/dfdc_train_part_5/metadata.json"
+        self.train_root_dir = "/dltraining/datasets"
+        self.train_metadata_file = "/dltraining/datasets/train_metadata.json"
         self.isBalanced = True
         
-        self.val_root_dir = "../dataset/dfdc_train_part_5"
-        self.val_metadata_file = "../dataset/dfdc_train_part_5/metadata.json"
+        self.val_root_dir = "/dltraining/datasets"
+        self.val_metadata_file = "/dltraining/datasets/valid_metadata.json"
         
-        self.test_root_dir = "../dataset/dfdc_train_part_5"
+        self.test_root_dir = "/dltraining/datasets/test_videos"
         
         # training parameters
-        self.num_training_face_samples = 4
+        self.num_training_face_samples = 32
         self.lr = 0.0003
         # -------------PARAMETERS--------------       
         
@@ -159,7 +159,7 @@ class LightningSystem(pl.LightningModule):
         train_dataset = VideoDataset(self.train_root_dir, self.train_metadata_file, isBalanced=self.isBalanced, num_frames=self.num_frames)
         train_dataloader = DataLoader(train_dataset,
                 batch_size= self.bs,
-                shuffle= True, 
+                shuffle= False, 
                 num_workers= self.num_workers, 
                 collate_fn= train_dataset.collate_fn,
                 pin_memory= True, 

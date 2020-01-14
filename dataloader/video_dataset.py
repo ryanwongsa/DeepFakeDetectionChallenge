@@ -69,34 +69,40 @@ class VideoDataset(Dataset):
         return video
 
     def readVideo_cv2(self, videoFile):
-        cap = cv2.VideoCapture(str(videoFile))
         max_image_dim = 1920
-        
-        width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        fcount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        selected_frames = list(range(0,fcount,math.ceil(fcount/self.num_frames)))
-        frames = torch.FloatTensor(len(selected_frames), 3, height, width)
-        counter = 0
-        for f in range(fcount):
-            grabbed = cap.grab()
-            if f in selected_frames:
-                ret, frame = cap.retrieve()
-                if ret:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        try:
+            cap = cv2.VideoCapture(str(videoFile))
+            
+            width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = int(cap.get(cv2.CAP_PROP_FPS))
+            fcount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            selected_frames = list(range(0,fcount,math.ceil(fcount/self.num_frames)))
+            frames = torch.FloatTensor(len(selected_frames), 3, height, width)
+            counter = 0
+            for f in range(fcount):
+                grabbed = cap.grab()
+                if f in selected_frames:
+                    ret, frame = cap.retrieve()
+                    if ret:
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                    frame = torch.from_numpy(frame)
-                    frame = frame.permute(2, 0, 1)
-                    frames[counter, :, :, :] = frame
-                    counter += 1
-        max_dim = max([height, width, max_image_dim])
-        diff_height = (max_dim-height)//2
-        diff_width = (max_dim-width)//2
-        p2d = (diff_width, diff_width, diff_height, diff_height)
-        frames = F.pad(frames, p2d, 'constant', 0)
+                        frame = torch.from_numpy(frame)
+                        frame = frame.permute(2, 0, 1)
+                        frames[counter, :, :, :] = frame
+                        counter += 1
+            max_dim = max([height, width, max_image_dim])
+            diff_height = (max_dim-height)//2
+            diff_width = (max_dim-width)//2
+            p2d = (diff_width, diff_width, diff_height, diff_height)
+            frames = F.pad(frames, p2d, 'constant', 0)
 
-        return frames
+            return frames
+        except Exception as e:
+            print(e)
+            print(str(videoFile))
+            return torch.zeros(self.num_frames, 3, max_image_dim, max_image_dim)
+            
 
     def __len__(self):
         if self.isBalanced:
