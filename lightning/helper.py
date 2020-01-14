@@ -14,7 +14,7 @@ def get_samples(videos_faces, videos_labels, num_training_face_samples):
     videos_labels = videos_labels[choices]
     return videos_faces, videos_labels
 
-def detect_video_faces(fd_model, face_img_size, video, label=None, device='gpu'):
+def detect_video_faces(fd_model, face_img_size, video, label=None, onGPU=True):
     faces, _ = fd_model(video.float(), return_prob=True)
     indices = [i for i, vf in enumerate(faces) if vf[0] is not None]
     faces = [vf for vf in faces if vf[0] is not None]
@@ -25,11 +25,11 @@ def detect_video_faces(fd_model, face_img_size, video, label=None, device='gpu')
             face_labels = label[indices]
     else:
         faces = torch.zeros(0,3,face_img_size,face_img_size)
-        if device!='cpu':
+        if onGPU:
             faces = faces.cuda()
         if label is not None:
-            face_labels = torch.zeros(0,1)
-            if device!='cpu':
+            face_labels = torch.zeros(0)
+            if onGPU:
                 face_labels = face_labels.cuda()
     return faces, face_labels
 

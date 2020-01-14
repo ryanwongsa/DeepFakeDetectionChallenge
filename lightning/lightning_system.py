@@ -30,16 +30,16 @@ class LightningSystem(pl.LightningModule):
         network_name = 'efficientnet-b0'
         
         # face detection parameters
-        face_img_size = 300
+        face_img_size = 128
         face_keep_all = False
         face_thresholds = [0.6, 0.7, 0.7]
         face_select_largest = True
         face_margin = 10
         
         # dataloader parameters
-        self.bs = 8
+        self.bs = 16
         self.num_workers = 4
-        self.num_frames = 10
+        self.num_frames = 5
         
         self.train_root_dir = "/dltraining/datasets"
         self.train_metadata_file = "/dltraining/datasets/train_metadata.json"
@@ -77,9 +77,9 @@ class LightningSystem(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         source_filenames, videos, labels, video_original_filenames = batch
-        
+
         videos_faces, videos_labels = detect_faces_for_videos(self.fd_model, self.face_img_size, videos, labels)
-        
+
         videos_faces, videos_labels = get_samples(videos_faces, videos_labels,self.num_training_face_samples)
         videos_faces = transform_batch(videos_faces, self.transform)
 
@@ -88,7 +88,7 @@ class LightningSystem(pl.LightningModule):
 
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
-
+            
     def validation_step(self, batch, batch_idx):
         source_filenames, videos, labels, video_original_filenames = batch
         
@@ -97,7 +97,7 @@ class LightningSystem(pl.LightningModule):
         for video, label in zip(videos, labels):
             video_label = label[0]
 
-            faces, face_labels = detect_video_faces(self.fd_model, self.face_img_size, video, label)
+            faces, face_labels = detect_video_faces(self.fd_model, self.face_img_size, video, label, self.on_gpu)
             if len(faces)>0:
                 faces = transform_batch(faces, self.transform)
                 predictions = self.forward(faces).squeeze()
