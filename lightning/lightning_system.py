@@ -38,7 +38,7 @@ class LightningSystem(pl.LightningModule):
         
         # dataloader parameters
         self.bs = 16
-        self.num_workers = 4
+        self.num_workers = 2
         self.num_frames = 5
         
         self.train_root_dir = "/dltraining/datasets"
