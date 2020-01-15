@@ -1,4 +1,3 @@
-
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from lightning.lightning_system import LightningSystem
@@ -15,6 +14,6 @@ checkpoint_callback = ModelCheckpoint(
     prefix=''
 )
 
-trainer = Trainer(nb_sanity_val_steps=0, gpus=1, max_nb_epochs=3, train_percent_check=0.1, val_percent_check=1.0, checkpoint_callback=checkpoint_callback) 
+trainer = Trainer(nb_sanity_val_steps=0, gpus=1, max_nb_epochs=3, train_percent_check=0.1, val_percent_check=0.2, checkpoint_callback=checkpoint_callback) 
 
 trainer.fit(model)  

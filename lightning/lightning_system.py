@@ -172,8 +172,8 @@ class LightningSystem(pl.LightningModule):
     def val_dataloader(self):
         val_dataset = VideoDataset(self.val_root_dir, self.val_metadata_file, num_frames=self.num_frames)
         val_dataloader = DataLoader(val_dataset,
-                batch_size= self.bs,
-                shuffle= False, 
+                batch_size= self.bs//2,
+                shuffle= True, 
                 num_workers= self.num_workers, 
                 collate_fn= val_dataset.collate_fn,
                 pin_memory= True, 
@@ -186,7 +186,7 @@ class LightningSystem(pl.LightningModule):
     def test_dataloader(self):
         dataset = VideoDataset(self.test_root_dir, None, num_frames=self.num_frames)
         dataloader = DataLoader(dataset,
-                batch_size= self.bs,
+                batch_size= self.bs//2,
                 shuffle= False, 
                 num_workers= self.num_workers, 
                 collate_fn= dataset.collate_fn,
