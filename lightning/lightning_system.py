@@ -19,40 +19,46 @@ from dataloader.video_dataset import VideoDataset
 
 from lightning.helper import *
 
+from argparse import ArgumentParser
+
 class LightningSystem(pl.LightningModule):
-    def __init__(self):
+    
+    def __init__(self, hparams):
         super(LightningSystem, self).__init__()
+        self.hparams = hparams
+        
+        
         
         # -------------PARAMETERS--------------
-        wandb_project_name = "deepfake-detection-competition"
+        wandb_project_name = self.hparams.project_name # "deepfake-detection-competition"
         
         # model parameters
-        network_name = 'efficientnet-b0'
-        
+        network_name = self.hparams.network_name # 'efficientnet-b0'
+        resume_run = self.hparams.resume_run
+        print("RESUME:",resume_run)
         # face detection parameters
-        face_img_size = 128
+        face_img_size = self.hparams.face_img_size
         face_keep_all = False
         face_thresholds = [0.6, 0.7, 0.7]
         face_select_largest = True
-        face_margin = 10
+        face_margin = self.hparams.face_margin
         
         # dataloader parameters
-        self.bs = 16
-        self.num_workers = 2
-        self.num_frames = 5
+        self.bs = self.hparams.batch_size
+        self.num_workers = self.hparams.num_workers
+        self.num_frames = self.hparams.num_frames
         
-        self.train_root_dir = "/dltraining/datasets"
-        self.train_metadata_file = "/dltraining/datasets/train_metadata.json"
-        self.isBalanced = True
+        self.train_root_dir = self.hparams.train_dir # "/dltraining/datasets"
+        self.train_metadata_file = self.hparams.train_meta_file # "/dltraining/datasets/train_metadata.json"
         
-        self.val_root_dir = "/dltraining/datasets"
-        self.val_metadata_file = "/dltraining/datasets/valid_metadata.json"
+        self.val_root_dir = self.hparams.valid_dir # "/dltraining/datasets"
+        self.val_metadata_file = self.hparams.valid_meta_file # "/dltraining/datasets/balanced_valid_metadata.json"
         
-        self.test_root_dir = "/dltraining/datasets/test_videos"
+        self.test_root_dir = self.hparams.test_dir # "/dltraining/datasets/test_videos"
         
         # training parameters
-        self.num_training_face_samples = 32
-        self.lr = 0.0003
+        self.num_training_face_samples = self.hparams.num_samples
+        self.lr = self.hparams.learning_rate
         # -------------PARAMETERS--------------       
         
         self.face_img_size = face_img_size
@@ -69,8 +75,13 @@ class LightningSystem(pl.LightningModule):
         self.transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
         
         if HAS_WANDB:
-            wandb.init(project=wandb_project_name, sync_tensorboard=True)
+            if resume_run is not None:
+                print("RESUMING RUN:", resume_run)
+                wandb.init(project=wandb_project_name, resume=resume_run, sync_tensorboard=True)
+            else:
+                wandb.init(project=wandb_project_name, sync_tensorboard=True)
             wandb.watch(self.model)
+            wandb.config.update(self.hparams)
 
     def forward(self, x):
         return self.model(x)
@@ -156,7 +167,7 @@ class LightningSystem(pl.LightningModule):
 
     @pl.data_loader
     def train_dataloader(self):
-        train_dataset = VideoDataset(self.train_root_dir, self.train_metadata_file, isBalanced=self.isBalanced, num_frames=self.num_frames)
+        train_dataset = VideoDataset(self.train_root_dir, self.train_metadata_file, isBalanced=True, num_frames=self.num_frames)
         train_dataloader = DataLoader(train_dataset,
                 batch_size= self.bs,
                 shuffle= True, 
@@ -172,7 +183,7 @@ class LightningSystem(pl.LightningModule):
     def val_dataloader(self):
         val_dataset = VideoDataset(self.val_root_dir, self.val_metadata_file, num_frames=self.num_frames)
         val_dataloader = DataLoader(val_dataset,
-                batch_size= self.bs//2,
+                batch_size= self.bs,
                 shuffle= True, 
                 num_workers= self.num_workers, 
                 collate_fn= val_dataset.collate_fn,
@@ -195,3 +206,28 @@ class LightningSystem(pl.LightningModule):
                 worker_init_fn=dataset.init_workers_fn
             )
         return dataloader
+    
+    @staticmethod
+    def add_model_specific_args(parent_parser, root_dir):
+        parser = ArgumentParser(parents=[parent_parser])
+        
+        parser.add_argument('--learning_rate', type=float, default=0.0003) 
+        parser.add_argument('--batch_size', default=16, type=int)
+        parser.add_argument('--num_samples', default=32, type=int)
+        parser.add_argument('--num_frames', default=5, type=int)
+        
+        parser.add_argument('--face_img_size', default=128, type=int)
+        parser.add_argument('--face_margin', default=10, type=int)
+        
+        parser.add_argument('--num_workers', default=2, type=int)
+
+        parser.add_argument('--train_dir', type=str)
+        parser.add_argument('--train_meta_file', type=str)
+        parser.add_argument('--valid_dir', type=str)
+        parser.add_argument('--valid_meta_file', type=str)
+        parser.add_argument('--test_dir', type=str)
+        
+        parser.add_argument('--project_name', type=str)
+        parser.add_argument('--network_name', type=str)
+        
+        return parser

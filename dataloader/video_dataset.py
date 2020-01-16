@@ -140,6 +140,8 @@ class VideoDataset(Dataset):
 
         if "data_dir" in video_metadata:
             video_filename = Path(video_metadata["data_dir"])/source_filename
+        else:
+            video_filename = self.root_dir/source_filename
 
         video = self.readVideo_cv2(video_filename)
 
