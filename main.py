@@ -17,9 +17,9 @@ def main(hparams):
     
     if hparams.checkpoint_dir is not None:
         model = LightningSystem.load_from_checkpoint(
-            checkpoint_path=hparams.checkpoint_dir,
+            checkpoint_path=hparams.checkpoint_dir, resume_run=hparams.resume_run
         )
-        print("Loaded from pretrained model")
+        print("Loaded from pretrained model: ", model.hparams.resume_run)
     else:
         model = LightningSystem(hparams)
 

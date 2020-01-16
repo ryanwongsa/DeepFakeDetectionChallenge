@@ -19,15 +19,14 @@ from dataloader.video_dataset import VideoDataset
 
 from lightning.helper import *
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 class LightningSystem(pl.LightningModule):
     
     def __init__(self, hparams):
         super(LightningSystem, self).__init__()
         self.hparams = hparams
-        
-        
+
         
         # -------------PARAMETERS--------------
         wandb_project_name = self.hparams.project_name # "deepfake-detection-competition"
@@ -35,7 +34,7 @@ class LightningSystem(pl.LightningModule):
         # model parameters
         network_name = self.hparams.network_name # 'efficientnet-b0'
         resume_run = self.hparams.resume_run
-        print("RESUME:",resume_run)
+        
         # face detection parameters
         face_img_size = self.hparams.face_img_size
         face_keep_all = False
@@ -77,11 +76,11 @@ class LightningSystem(pl.LightningModule):
         if HAS_WANDB:
             if resume_run is not None:
                 print("RESUMING RUN:", resume_run)
-                wandb.init(project=wandb_project_name, resume=resume_run, sync_tensorboard=True)
+                wandb.init(project=wandb_project_name, resume=resume_run, allow_val_change=True, sync_tensorboard=True)
             else:
                 wandb.init(project=wandb_project_name, sync_tensorboard=True)
             wandb.watch(self.model)
-            wandb.config.update(self.hparams)
+            wandb.config.update(self.hparams, allow_val_change=True)
 
     def forward(self, x):
         return self.model(x)
@@ -206,6 +205,32 @@ class LightningSystem(pl.LightningModule):
                 worker_init_fn=dataset.init_workers_fn
             )
         return dataloader
+    
+    @classmethod
+    def load_from_checkpoint(cls, checkpoint_path, map_location=None, resume_run=None):
+        if map_location is not None:
+            checkpoint = torch.load(checkpoint_path, map_location=map_location)
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+
+        try:
+            ckpt_hparams = checkpoint['hparams']
+        except KeyError:
+            raise IOError(
+                "Checkpoint does not contain hyperparameters. Are your model hyperparameters stored"
+                "in self.hparams?"
+            )
+        hparams = Namespace(**ckpt_hparams)
+
+        # load the state_dict on the model automatically
+        hparams.resume_run=resume_run
+        model = cls(hparams)
+        model.load_state_dict(checkpoint['state_dict'])
+
+        # give model a chance to load something
+        model.on_load_checkpoint(checkpoint)
+
+        return model
     
     @staticmethod
     def add_model_specific_args(parent_parser, root_dir):
