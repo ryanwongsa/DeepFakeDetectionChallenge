@@ -4,115 +4,122 @@ try:
     HAS_WANDB = True
 except ImportError:
     HAS_WANDB = False
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
-
+import pandas as pd
+import numpy as np
 import pytorch_lightning as pl
 
-# from models.baseline.net import Net
 from models.efficientnet.net import Net
 from feature_detectors.face_detectors.facenet.face_detect import MTCNN
 from dataloader.video_dataset import VideoDataset
-import pandas as pd
-import numpy as np
 
 from lightning.helper import *
 
+from argparse import ArgumentParser, Namespace
+
 class LightningSystem(pl.LightningModule):
-
-    def __init__(self):
+    
+    def __init__(self, hparams):
         super(LightningSystem, self).__init__()
-        if HAS_WANDB:
-            wandb.init(project="test-project", sync_tensorboard=True)
-        self.face_img_size = 300
-        # self.model = Net(self.face_img_size)
-        self.model = Net('efficientnet-b0')
+        self.hparams = hparams
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.mtcnn = MTCNN(image_size=self.face_img_size, keep_all=False, device=device,thresholds=[0.6, 0.7, 0.7], select_largest=True, margin=20)
-        self.mtcnn.eval()
-        if HAS_WANDB:
-            wandb.watch(self.model)
+        
+        # -------------PARAMETERS--------------
+        wandb_project_name = self.hparams.project_name # "deepfake-detection-competition"
+        
+        # model parameters
+        network_name = self.hparams.network_name # 'efficientnet-b0'
+        resume_run = self.hparams.resume_run
+        
+        # face detection parameters
+        face_img_size = self.hparams.face_img_size
+        face_keep_all = False
+        face_thresholds = [0.6, 0.7, 0.7]
+        face_select_largest = True
+        face_margin = self.hparams.face_margin
+        
+        # dataloader parameters
+        self.bs = self.hparams.batch_size
+        self.num_workers = self.hparams.num_workers
+        self.num_frames = self.hparams.num_frames
+        
+        self.train_root_dir = self.hparams.train_dir # "/dltraining/datasets"
+        self.train_metadata_file = self.hparams.train_meta_file # "/dltraining/datasets/train_metadata.json"
+        
+        self.val_root_dir = self.hparams.valid_dir # "/dltraining/datasets"
+        self.val_metadata_file = self.hparams.valid_meta_file # "/dltraining/datasets/balanced_valid_metadata.json"
+        
+        self.test_root_dir = self.hparams.test_dir # "/dltraining/datasets/test_videos"
+        
+        # training parameters
+        self.num_training_face_samples = self.hparams.num_samples
+        self.lr = self.hparams.learning_rate
+        # -------------PARAMETERS--------------       
+        
+        self.face_img_size = face_img_size
+        self.model = Net(network_name)
+        
+        device = torch.device('cuda' if self.on_gpu else 'cpu')
+        
+        self.fd_model = MTCNN(image_size=self.face_img_size, keep_all=face_keep_all, device=device,thresholds=face_thresholds, select_largest=face_select_largest, margin=face_margin)
+        self.fd_model.eval()
+        
         self.criterion = nn.BCELoss()
         self.log_loss = nn.BCELoss()
 
         self.transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+        
+        if HAS_WANDB:
+            if resume_run is not None:
+                print("RESUMING RUN:", resume_run)
+                wandb.init(project=wandb_project_name, resume=resume_run, allow_val_change=True, sync_tensorboard=True)
+            else:
+                wandb.init(project=wandb_project_name, sync_tensorboard=True)
+            wandb.watch(self.model)
+            wandb.config.update(self.hparams, allow_val_change=True)
 
     def forward(self, x):
         return self.model(x)
 
-    def detect_faces(self, video, label=None):
-        faces, _ = self.mtcnn(video.float(), return_prob=True)
-        indices = [i for i, vf in enumerate(faces) if vf[0] is not None]
-        faces = [vf for vf in faces if vf[0] is not None]
-        face_labels=None
-        if len(faces)!=0:
-          # faces = torch.stack(faces, dim=1).squeeze()
-          faces = torch.cat(faces)
-          if label is not None:
-            face_labels = label[indices]
-        else:
-          faces = torch.zeros(0,3,self.face_img_size,self.face_img_size)
-          if label is not None:
-            face_labels = torch.zeros(0,1)
-        return faces, face_labels
-
-    def transform_batch(self, videos):
-        videos = torch.stack([self.transform(video/255.0) for video in videos])
-        return videos
-
     def training_step(self, batch, batch_idx):
         source_filenames, videos, labels, video_original_filenames = batch
-        videos_faces = []
-        videos_labels = []
-        for video, label in zip(videos, labels):
-          faces, face_labels = self.detect_faces(video, label)
-          videos_faces.append(faces)
-          videos_labels.append(face_labels)
 
-        videos_faces = torch.cat(videos_faces)
-        videos_labels = torch.cat(videos_labels)
+        videos_faces, videos_labels = detect_faces_for_videos(self.fd_model, self.face_img_size, videos, labels)
 
-        num_frames = videos_labels.shape[0]
-        #TODO: maybe in of num_samples and num_frames
-        choices = get_random_sample_frames(num_frames, num_samples=16)
+        videos_faces, videos_labels = get_samples(videos_faces, videos_labels,self.num_training_face_samples)
+        videos_faces = transform_batch(videos_faces, self.transform)
 
-        videos_faces = videos_faces[choices]
-        videos_labels = videos_labels[choices]
-
-        videos_faces = self.transform_batch(videos_faces)
-
-        y_hat = self.forward(videos_faces).squeeze()
-        loss = self.criterion(y_hat, videos_labels)
+        predicted = self.forward(videos_faces).squeeze()
+        loss = self.criterion(predicted, videos_labels)
 
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
-
+            
     def validation_step(self, batch, batch_idx):
         source_filenames, videos, labels, video_original_filenames = batch
+        
         total_loss = 0.0
         total_logloss = 0.0
         for video, label in zip(videos, labels):
-          video_label = label[0]
-          
-          faces, face_labels = self.detect_faces(video, label)
-          if len(faces)>0:
-            faces = self.transform_batch(faces)
+            video_label = label[0]
 
-            y_hat = self.forward(faces).squeeze()
+            faces, face_labels = detect_video_faces(self.fd_model, self.face_img_size, video, label, self.on_gpu)
+            if len(faces)>0:
+                faces = transform_batch(faces, self.transform)
+                predictions = self.forward(faces).squeeze()
+                loss = self.criterion(predictions, face_labels)
+                logloss = self.log_loss(predictions.mean(), video_label)
+            else:
+                logloss = 0.7
+                loss = 0.7
 
-            loss = self.criterion(y_hat, face_labels)
-            total_loss += loss
-            logloss = self.log_loss(y_hat.mean(), video_label)
             total_logloss += logloss 
-          else:
-            total_loss += 0.7
-            total_logloss += 0.7 
-
+            total_loss += loss
+            
         avg_loss = total_loss / len(videos)
         avg_logloss = total_logloss / len(videos)
         return {'val_loss': avg_loss, 'logloss':avg_logloss}
@@ -120,30 +127,29 @@ class LightningSystem(pl.LightningModule):
     def validation_end(self, outputs):
         loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         logloss = torch.tensor([x['logloss'] for x in outputs]).mean()
-        return {'val_loss': loss, 'logloss': logloss, 'log': {'val_loss': loss, 'logloss':logloss}, 'progress_bar': {'val_loss': loss, 'logloss':logloss}}
+        return {'val_loss': loss, 'val_logloss': logloss, 'log': {'val_loss': loss, 'val_logloss':logloss}, 'progress_bar': {'val_loss': loss, 'val_logloss':logloss}}
 
     def test_step(self, batch, batch_idx):
         source_filenames, videos = batch
 
         list_submission = []
-        for source_filename, video in zip(source_filenames,videos):
-            faces, _ = self.detect_faces(video)
+        for source_filename, video in zip(source_filenames, videos):
+            faces, _ = detect_video_faces(self.df_model, self.face_img_size, video)
             if len(faces)>0:
-              faces = self.transform_batch(faces)
-
-              y_hat = self.forward(faces).squeeze()
-
-              dict_solution = {
-                  "filename":source_filename,
-                  "label": float(y_hat.mean().cpu().detach().numpy())
-              }
-              list_submission.append(dict_solution)
+                faces = transform_batch(faces, self.transform)
+                predictions = self.forward(faces).squeeze()
+                if self.on_gpu:
+                    predictions = float(predictions.mean().cpu().detach().numpy())
+                else:
+                    predictions = float(predictions.mean().detach().numpy())
             else:
-              dict_solution = {
-                  "filename":source_filename,
-                  "label": 0.5
-              }
-              list_submission.append(dict_solution)
+                predictions = 0.5
+
+            dict_solution = {
+              "filename":source_filename,
+              "label": predictions
+            }
+            list_submission.append(dict_solution)
         return {'submission_batch': list_submission}
 
     def test_end(self, outputs):
@@ -156,17 +162,15 @@ class LightningSystem(pl.LightningModule):
         return {}
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=0.003)
+        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
     @pl.data_loader
     def train_dataloader(self):
-        train_root_dir = "/content/DeepFakeDetectionChallenge/dfdc_train_part_0"
-        train_metadata_file = "/content/DeepFakeDetectionChallenge/dfdc_train_part_0/metadata.json"
-        train_dataset = VideoDataset(train_root_dir, train_metadata_file, isBalanced=True)
+        train_dataset = VideoDataset(self.train_root_dir, self.train_metadata_file, isBalanced=True, num_frames=self.num_frames)
         train_dataloader = DataLoader(train_dataset,
-                batch_size= 4,
+                batch_size= self.bs,
                 shuffle= True, 
-                num_workers= 2, 
+                num_workers= self.num_workers, 
                 collate_fn= train_dataset.collate_fn,
                 pin_memory= True, 
                 drop_last = True,
@@ -176,13 +180,11 @@ class LightningSystem(pl.LightningModule):
 
     @pl.data_loader
     def val_dataloader(self):
-        val_root_dir = "/content/DeepFakeDetectionChallenge/train_sample_videos"
-        val_metadata_file = "/content/DeepFakeDetectionChallenge/train_sample_videos/metadata.json"
-        val_dataset = VideoDataset(val_root_dir, val_metadata_file)
+        val_dataset = VideoDataset(self.val_root_dir, self.val_metadata_file, num_frames=self.num_frames)
         val_dataloader = DataLoader(val_dataset,
-                batch_size= 8,
-                shuffle= False, 
-                num_workers= 2, 
+                batch_size= self.bs,
+                shuffle= True, 
+                num_workers= self.num_workers, 
                 collate_fn= val_dataset.collate_fn,
                 pin_memory= True, 
                 drop_last = False,
@@ -192,15 +194,65 @@ class LightningSystem(pl.LightningModule):
     
     @pl.data_loader
     def test_dataloader(self):
-        root_dir = "/content/DeepFakeDetectionChallenge/test_videos"
-        dataset = VideoDataset(root_dir, None)
+        dataset = VideoDataset(self.test_root_dir, None, num_frames=self.num_frames)
         dataloader = DataLoader(dataset,
-                batch_size= 8,
+                batch_size= self.bs//2,
                 shuffle= False, 
-                num_workers= 2, 
+                num_workers= self.num_workers, 
                 collate_fn= dataset.collate_fn,
                 pin_memory= True, 
                 drop_last = False,
                 worker_init_fn=dataset.init_workers_fn
             )
         return dataloader
+    
+    @classmethod
+    def load_from_checkpoint(cls, checkpoint_path, map_location=None, resume_run=None):
+        if map_location is not None:
+            checkpoint = torch.load(checkpoint_path, map_location=map_location)
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+
+        try:
+            ckpt_hparams = checkpoint['hparams']
+        except KeyError:
+            raise IOError(
+                "Checkpoint does not contain hyperparameters. Are your model hyperparameters stored"
+                "in self.hparams?"
+            )
+        hparams = Namespace(**ckpt_hparams)
+
+        # load the state_dict on the model automatically
+        hparams.resume_run=resume_run
+        model = cls(hparams)
+        model.load_state_dict(checkpoint['state_dict'])
+
+        # give model a chance to load something
+        model.on_load_checkpoint(checkpoint)
+
+        return model
+    
+    @staticmethod
+    def add_model_specific_args(parent_parser, root_dir):
+        parser = ArgumentParser(parents=[parent_parser])
+        
+        parser.add_argument('--learning_rate', type=float, default=0.0003) 
+        parser.add_argument('--batch_size', default=16, type=int)
+        parser.add_argument('--num_samples', default=32, type=int)
+        parser.add_argument('--num_frames', default=5, type=int)
+        
+        parser.add_argument('--face_img_size', default=128, type=int)
+        parser.add_argument('--face_margin', default=10, type=int)
+        
+        parser.add_argument('--num_workers', default=2, type=int)
+
+        parser.add_argument('--train_dir', type=str)
+        parser.add_argument('--train_meta_file', type=str)
+        parser.add_argument('--valid_dir', type=str)
+        parser.add_argument('--valid_meta_file', type=str)
+        parser.add_argument('--test_dir', type=str)
+        
+        parser.add_argument('--project_name', type=str)
+        parser.add_argument('--network_name', type=str)
+        
+        return parser
