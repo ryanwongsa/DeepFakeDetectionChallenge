@@ -41,7 +41,8 @@ def main(hparams):
         val_percent_check=hparams.val_percent_check,
         use_amp=hparams.use_16bit,
         default_save_path=hparams.save_path,
-        checkpoint_callback=checkpoint_callback
+        checkpoint_callback=checkpoint_callback,
+        max_epochs = hparams.num_epochs
     )
 
     print("Checkpoint Prefix:", hparams.checkpoint_name)
@@ -69,6 +70,12 @@ if __name__ == '__main__':
         '--val_percent_check',
         type=float,
         default=1.0,
+    )
+
+    parent_parser.add_argument(
+        '--num_epochs',
+        type=int,
+        default=3,
     )
 
     parent_parser.add_argument(
