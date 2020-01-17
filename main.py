@@ -42,7 +42,7 @@ def main(hparams):
         use_amp=hparams.use_16bit,
         default_save_path=hparams.save_path,
         checkpoint_callback=checkpoint_callback,
-        max_epochs = hparams.num_epochs
+        max_nb_epochs = hparams.num_epochs
     )
 
     print("Checkpoint Prefix:", hparams.checkpoint_name)
