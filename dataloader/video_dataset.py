@@ -113,7 +113,7 @@ class VideoDataset(Dataset):
 
     def __len__(self):
         if self.isBalanced:
-            return min(len(self.fake_list), len(self.real_list))*2
+            return min(len(self.fake_list), len(self.real_list))//2
         elif self.metadata is None:
             return len(self.list_videos)
         else:
