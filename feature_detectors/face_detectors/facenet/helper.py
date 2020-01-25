@@ -267,19 +267,17 @@ def imresample(img, sz):
     return im_data
 
 
-def extract_face(img, box, image_size=160, margin=0, device=None):
-    # TODO: Pad image with margin dimension so that the image will be scaled correctly
-    # TODO: Fix this so it runs only on GPU
-    if device == 'cpu':
-        box = box.round().numpy().astype('int')
-    else:
-        box = box.round().cpu().numpy().astype('int')
+def extract_face(imgs, box, margin=0):
+    box = box.round().int()
 
     box_h_min = max(box[1] - margin // 2, 0)
     box_w_min = max(box[0] - margin // 2, 0)
-    box_h_max = min(box[3] + margin // 2, img.shape[1])
-    box_w_max = min(box[2] + margin // 2, img.shape[2])
-    face = img[:, box_h_min:box_h_max,box_w_min:box_w_max]
+    box_h_max = min(box[3] + margin // 2, imgs.shape[2])
+    box_w_max = min(box[2] + margin // 2, imgs.shape[3])
+    faces = imgs[:,:, box_h_min:box_h_max,box_w_min:box_w_max]
+    
+    return faces, [box_h_min, box_w_min, box_h_max, box_w_max]
 
-    face = F.interpolate(face.unsqueeze(0), size=(image_size,image_size))
-    return face
+def standardise_img(imgs, image_size):
+    imgs = F.interpolate(imgs, size=(image_size,image_size), mode="area")
+    return imgs

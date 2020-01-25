@@ -136,44 +136,18 @@ class ONet(nn.Module):
 
 
 class MTCNN(nn.Module):
-    """MTCNN face detection module.
-    
-    Keyword Arguments:
-        image_size {int} -- Output image size in pixels. The image will be square. (default: {160})
-        margin {int} -- Margin to add to bounding box, in terms of pixels in the final image. 
-            Note that the application of the margin differs slightly from the davidsandberg/facenet
-            repo, which applies the margin to the original image before resizing, making the margin
-            dependent on the original image size (this is a bug in davidsandberg/facenet).
-            (default: {0})
-        min_face_size {int} -- Minimum face size to search for. (default: {20})
-        thresholds {list} -- MTCNN face detection thresholds (default: {[0.6, 0.7, 0.7]})
-        factor {float} -- Factor used to create a scaling pyramid of face sizes. (default: {0.709})
-        post_process {bool} -- Whether or not to post process images tensors before returning. (default: {True})
-        select_largest {bool} -- If True, if multiple faces are detected, the largest is returned.
-            If False, the face with the highest detection probability is returned. (default: {True})
-        keep_all {bool} -- If True, all detected faces are returned, in the order dictated by the
-            select_largest parameter. If a save_path is specified, the first face is saved to that
-            path and the remaining faces are saved to <save_path>1, <save_path>2 etc.
-        device {torch.device} -- The device on which to run neural net passes. Image tensors and
-            models are copied to this device before running forward passes. (default: {None})
-    """
 
     def __init__(
-        self, image_size=160, margin=0, min_face_size=20,
-        thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
-        select_largest=True, keep_all=False, device=None, 
+        self, thresholds=[0.6, 0.7, 0.7], factor=0.709,
+        select_largest=True, keep_top_k=1, device=None, threshold_prob = 0.9,
         pnet_pth='pretrained_models/pnet.pt', rnet_pth='pretrained_models/rnet.pt', onet_pth='pretrained_models/onet.pt'
     ):
         super().__init__()
 
-        self.image_size = image_size
-        self.margin = margin
-        self.min_face_size = min_face_size
         self.thresholds = thresholds
         self.factor = factor
-        self.post_process = post_process
-        self.select_largest = select_largest
-        self.keep_all = keep_all
+        self.keep_top_k = keep_top_k
+        self.threshold_prob = threshold_prob
 
         self.pnet = PNet(pretrained_path=pnet_pth)
         self.rnet = RNet(pretrained_path=rnet_pth)
@@ -185,66 +159,40 @@ class MTCNN(nn.Module):
             self.to(device)
 
 
-    def forward(self, img, return_prob=False):
-        """Run MTCNN face detection on a PIL image. This method performs both detection and
-        extraction of faces, returning tensors representing detected faces rather than the bounding
-        boxes. To access bounding boxes, see the MTCNN.detect() method below.
-        
-        Returns:
-            Union[torch.Tensor, tuple(torch.tensor, float)] -- If detected, cropped image of a face
-                with dimensions 3 x image_size x image_size. Optionally, the probability that a
-                face was detected. If self.keep_all is True, n detected faces are returned in an
-                n x 3 x image_size x image_size tensor with an optional list of detection
-                probabilities. If `img` is a list of images, the item(s) returned have an extra 
-                dimension (batch) as the first dimension.
-        Example:
-        >>> from facenet_pytorch import MTCNN
-        >>> mtcnn = MTCNN()
-        >>> face_tensor, prob = mtcnn(img, save_path='face.png', return_prob=True)
-        """
-
-        # Detect faces
-        with torch.no_grad():
-            batch_boxes, batch_probs = self.detect(img)
-        
-        # Process all bounding boxes and probabilities
-        faces, probs = [], []
-        for im, box_im, prob_im in zip(img, batch_boxes, batch_probs):
-            if box_im is None:
-                faces.append([None])
-                probs.append([None] if self.keep_all else None)
-                continue
-
-            if not self.keep_all:
-                box_im = box_im[[0]]
-
-            faces_im = []
-            for i, box in enumerate(box_im):
-
-                face = extract_face(im, box, self.image_size, self.margin, device=self.device)
-                # if self.post_process:
-                # face = fixed_image_standardization(face)
-                faces_im.append(face)
-
-            if self.keep_all:
-                faces_im = faces_im
-            else:
-                faces_im = faces_im[0]
-                prob_im = prob_im[0]
+    def forward(self, img, min_face_size=20, return_prob=False):
+        batch_boxes, batch_probs = self.detect(img, min_face_size)
+        return batch_boxes, batch_probs
+#         faces, probs, center_boxes = [], [], []
+#         for im, box_im, prob_im in zip(img, batch_boxes, batch_probs):
+#             if box_im is None:
+#                 faces.append([None])
+#                 center_boxes.append([None])
+#                 probs.append([None])
+#                 continue
             
-            faces.append(faces_im)
-            probs.append(prob_im)
+#             faces_im, center_boxes_im = [], []
+#             for i, box in enumerate(box_im):
+#                 margin = 10
+#                 face, center_box = extract_face(im, box, margin, device=self.device)
+                
+#                 faces_im.append(face)
+#                 center_boxes_im.append(center_box)
+            
+#             faces.append(faces_im)
+#             probs.append(prob_im)
+#             center_boxes.append(center_boxes_im)
 
-        if return_prob:
-            return faces, probs
-        else:
-            return faces
+#         if return_prob:
+#             return faces, center_boxes, probs 
+#         else:
+#             return faces
+        
 
-    def detect(self, img, landmarks=False):
+    def detect(self, img, min_face_size=10, landmarks=False):
 
         with torch.no_grad():
             batch_boxes, batch_points = detect_face(
-                img, self.min_face_size,
+                img, min_face_size,
                 self.pnet, self.rnet, self.onet,
                 self.thresholds, self.factor,
                 self.device
@@ -252,31 +200,25 @@ class MTCNN(nn.Module):
 
         boxes, probs, points = [], [], []
         for box, point in zip(batch_boxes, batch_points):
-
+            box = box[box[:,4]>self.threshold_prob]
             if len(box) == 0:
                 boxes.append(None)
                 probs.append([None])
                 points.append([None])
-            elif self.select_largest:
-                _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]))
-
-                box_order = box_order[len(box_order)-1]
-                box = box[box_order]
-                point = point[box_order]
-                boxes.append(box[:4].unsqueeze(0))
-                probs.append(box[4].unsqueeze(0))
-                points.append(point.unsqueeze(0))
             else:
-                boxes.append(box[:, :4])
-                probs.append(box[:, 4])
-                points.append(point)
-
+                _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]), descending=True)
+                
+                keep = min(len(box_order), self.keep_top_k)
+                box_order = box_order[0:keep]
+                
+                box_i = box[box_order][:,0:4]
+                prob_i = box[box_order][:, 4]
+                point_i = point[box_order]
+                boxes.append(box_i)
+                probs.append(prob_i)
+                points.append(point_i)
+                
         if landmarks:
             return boxes, probs, points
 
         return boxes, probs
-
-
-def fixed_image_standardization(image_tensor):
-    processed_tensor = (image_tensor - 127.5) / 128.0
-    return processed_tensor
