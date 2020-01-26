@@ -35,7 +35,7 @@ class Callbacks(object):
         self.step +=1
         
     def on_train_end(self, data_dict=None):
-        self.send_log({"train_mean_loss": self.logger.get("train_mean_loss")})
+        self.send_log({"train_mean_loss": self.logger.get("train_mean_loss")}, True)
         print("== train:", self.epoch, self.step, self.logger.get("train_mean_loss"))
     
     def on_valid_start(self, data_dict=None):
