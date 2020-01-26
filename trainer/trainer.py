@@ -10,42 +10,40 @@ from logger.checkpointer_saver import load_checkpoint
 from augmentations.augment import base_aug
 from tqdm import tqdm as tqdm
 
-import torch
-
 class Trainer(object):
-    def __init__(self):
+    def __init__(self, hparams):
         
-        self.sequence_length = 1 # should be 1 if training only single image classifier
-        self.num_sequences = 10
-        self.batch_size = 4
-        self.num_workers = 0
+        self.sequence_length = hparams.sequence_length # should be 1 if training only single image classifier
+        self.num_sequences = hparams.num_sequences
+        self.batch_size = hparams.batch_size
+        self.num_workers = hparams.num_workers
         
         self.device = 'cuda'
         
-        self.keep_top_k = 2
+        self.keep_top_k = hparams.keep_top_k
         self.face_thresholds = [0.6, 0.7, 0.7]
-        self.threshold_prob = 0.99
+        self.threshold_prob = hparams.threshold_prob
         
-        self.image_size = 128
-        self.margin_factor = 0.75
+        self.image_size = hparams.image_size
+        self.margin_factor = hparams.margin_factor
         
-        self.num_samples = 16
-        self.isSequenceClassifier = False
-        
-        
-        self.network_name = 'efficientnet-b0'
-        self.epochs = 3
-        self.save_dir = "test_saving/save_name6"
-        self.checkpoint_dir = "test_saving/save_name5-16"
-        self.grad_acc_num = 1
-        self.lr = 0.0003
+        self.num_samples = hparams.num_samples
+        self.isSequenceClassifier = hparams.is_sequence_classifier
         
         
-        self.train_dir = "../../deepfake-detection-challenge/train_sample_videos"
-        self.train_meta_file = "../../deepfake-detection-challenge/train_sample_videos/metadata.json"
+        self.network_name = hparams.network_name
+        self.epochs = hparams.epochs
+        self.save_dir = hparams.save_dir
+        self.checkpoint_dir = hparams.checkpoint_dir
+        self.grad_acc_num = hparams.grad_acc_num
+        self.lr = hparams.lr
+        
+        
+        self.train_dir = hparams.train_dir
+        self.train_meta_file = hparams.train_meta_file
 
-        self.valid_dir = "../../deepfake-detection-challenge/train_sample_videos"
-        self.valid_meta_file = "../../deepfake-detection-challenge/train_sample_videos/metadata.json"
+        self.valid_dir = hparams.valid_dir
+        self.valid_meta_file = hparams.valid_meta_file
         
         self.init_train_dataloader(base_aug, length=32)
         self.init_valid_dataloader(length = 16)
@@ -65,7 +63,9 @@ class Trainer(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         
         self.cb = Callbacks(save_dir=self.save_dir)
+        self.cb.init_wandb(hparams.project_name, hparams, hparams.run_name)
         self.load_from_checkpoint(self.checkpoint_dir)
+        
         
     def load_from_checkpoint(self, checkpoint_dir):
         if self.checkpoint_dir is not None:
