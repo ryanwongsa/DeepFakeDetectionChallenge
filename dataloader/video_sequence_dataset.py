@@ -147,6 +147,7 @@ class VideoSequenceDataset(Dataset):
 
                 list_of_squences.append(frames)
             f+=1
+        cap.release()
         return list_of_squences
 
     def __getitem__(self, idx):

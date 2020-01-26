@@ -57,12 +57,12 @@ class FaceModel(object):
                 video_data = torch.stack(video_data,0)
             else:
                 video_data = torch.zeros((0,sequence_length, 3, self.image_size, self.image_size)).to(self.device)
-            labels = (torch.ones(video_data.shape[0])*label).to(self.device)
+            labels = (torch.ones(video_data.shape[0],1)*label).to(self.device)
             batch_video_data.append(video_data)
             batch_video_labels.append(labels)
-        batch_sequences = torch.cat(batch_video_data,0)
-        batch_video_labels = torch.cat(batch_video_labels,0)
-        return batch_sequences, batch_video_labels
+#         batch_sequences = torch.cat(batch_video_data,0)
+#         batch_video_labels = torch.cat(batch_video_labels,0)
+        return batch_video_data, batch_video_labels
 
         
 def get_image(img, device = 'cuda'):
@@ -86,8 +86,15 @@ def get_samples(batch_sequences, batch_labels, num_samples):
     
     return batch_sequences, batch_labels
 
-def get_parsed_sequences(sample_sequences, isSequenceClassifier):
-    if not isSequenceClassifier:
-        b, s, c, h, w = sample_sequences.shape
-        sample_sequences = sample_sequences.view(b*s, c, h, w)
+def get_normalised_sequences(sample_sequences, transform, isSequenceClassifier):
+    b, s, c, h, w = sample_sequences.shape
+    sample_sequences = sample_sequences.view(b*s, c, h, w)
+    sample_sequences = transform_batch(sample_sequences, transform)
+    if isSequenceClassifier:
+        sample_sequences = sample_sequences.view(b,s, c, h, w)
     return sample_sequences
+
+def transform_batch(videos, transform):
+    if len(videos)>0:
+        videos = torch.stack([transform(video/255.0) for video in videos])
+    return videos
