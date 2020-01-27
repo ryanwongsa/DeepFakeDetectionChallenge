@@ -45,8 +45,8 @@ class Trainer(object):
         self.valid_dir = hparams.valid_dir
         self.valid_meta_file = hparams.valid_meta_file
         
-        self.init_train_dataloader(base_aug, length=32)
-        self.init_valid_dataloader(length = 16)
+        self.init_train_dataloader(base_aug, length=None)
+        self.init_valid_dataloader(length = None)
         
         self.FM = FaceModel(keep_top_k=self.keep_top_k, 
              face_thresholds= self.face_thresholds, 
