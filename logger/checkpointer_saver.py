@@ -9,7 +9,7 @@ def make_save_dir(save_dir):
 
 def save_checkpoint(data_dict, save_dir, step_num=0):
     if save_dir != None:
-        print("Saving checkpoint to:", save_dir)
+        print("Saving checkpoint to:", save_dir+"-"+str(step_num))
         make_save_dir(''.join(save_dir.split('/')[:-1]))
         
     if torch.cuda.device_count() > 1:
