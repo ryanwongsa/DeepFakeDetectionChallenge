@@ -2,3 +2,5 @@ opencv-python
 tqdm
 wandb
 albumentations
+scikit-image==0.14.2
+numpy==1.16

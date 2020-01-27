@@ -33,7 +33,7 @@ class FaceModel(object):
             video_data = []
             label = batch_labels[index]
             for sequence in video_sequences:
-                sequence = torch.from_numpy(sequence).float().to(self.device).permute(0,3,1,2)
+                sequence = sequence.float().to(self.device).permute(0,3,1,2)
 
                 index_face_analysis = sequence_length//2
                 # TODO: update this dynamically based on video size

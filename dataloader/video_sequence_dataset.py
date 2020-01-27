@@ -40,7 +40,7 @@ class VideoSequenceDataset(Dataset):
         self.transform = transform
         
         if self.isBalanced:
-            self.length = min(len(self.fake_list), len(self.real_list))//2
+            self.length = min(len(self.fake_list), len(self.real_list))//4
         elif self.metadata is None:
             self.length = len(self.list_videos)
         else:
@@ -58,7 +58,7 @@ class VideoSequenceDataset(Dataset):
             return source_filenames, videos
 
         source_filenames, videos, labels, video_original_filenames = zip(*samples)
-        return source_filenames, videos, labels, video_original_filenames
+        return source_filenames, videos, torch.tensor(labels), video_original_filenames
 
     def __len__(self):
         return self.length
@@ -106,7 +106,7 @@ class VideoSequenceDataset(Dataset):
             start_index = random.randint(0,int(self.sequence_length*fps_rate-1))
             
         end_index = int(fcount-start_index-(self.sequence_length*fps_rate))
-        gap = int(end_index//(self.num_sequences))
+        gap = math.ceil(end_index/(self.num_sequences))
         selected_frames = list(range(start_index,end_index,gap))
         
         list_of_squences = []
@@ -145,7 +145,7 @@ class VideoSequenceDataset(Dataset):
                 else:
                     frames = np.array([v for k, v in dict_frames.items()])
 
-                list_of_squences.append(frames)
+                list_of_squences.append(torch.tensor(frames))
             f+=1
         cap.release()
         return list_of_squences
