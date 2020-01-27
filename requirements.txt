@@ -1,3 +1,4 @@
 opencv-python
-git+https://github.com/ryanwongsa/pytorch-lightning.git@master
+tqdm
 wandb
+albumentations
