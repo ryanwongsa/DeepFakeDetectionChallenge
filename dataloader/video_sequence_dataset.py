@@ -40,7 +40,7 @@ class VideoSequenceDataset(Dataset):
         self.transform = transform
         
         if self.isBalanced:
-            self.length = min(len(self.fake_list), len(self.real_list))//4
+            self.length = min(len(self.fake_list), len(self.real_list))//2
         elif self.metadata is None:
             self.length = len(self.list_videos)
         else:
