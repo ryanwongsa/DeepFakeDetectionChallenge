@@ -113,9 +113,8 @@ class Trainer(object):
         batch_predicted = self.model(batch_sequences)
         loss = self.criterion(batch_predicted, batch_video_labels)
 
-        loss_item = loss.item()
-        self.cb.logger.update_metric(loss_item, "train_batch_loss")
-        self.cb.logger.increment_metric(loss_item, "train_mean_loss")
+        self.cb.logger.update_metric(loss.item(), "train_batch_loss")
+        self.cb.logger.increment_metric(loss.item(), "train_mean_loss")
 
         return loss
 
@@ -133,14 +132,11 @@ class Trainer(object):
                 else:
                     predicted = self.model(sequences)
                 loss = self.criterion(predicted, labels)
-
                 log_loss = self.log_loss_criterion(predicted.mean(axis=0), labels[0])
 
-                loss_item = loss.item()
-                log_loss_item = log_loss.item()
-                self.cb.logger.increment_metric(loss_item, "valid_batch_loss")
-                self.cb.logger.increment_metric(loss_item, "valid_mean_loss")
-                self.cb.logger.increment_metric(log_loss_item, "valid_log_loss")
+                self.cb.logger.increment_metric(loss.item(), "valid_batch_loss")
+                self.cb.logger.increment_metric(loss.item(), "valid_mean_loss")
+                self.cb.logger.increment_metric(log_loss.item(), "valid_log_loss")
 
         return {}
     

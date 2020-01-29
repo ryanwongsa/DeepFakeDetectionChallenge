@@ -12,8 +12,10 @@ class FaceModel(object):
                  device = 'cuda',
                  
                  image_size = 128,
-                 margin_factor = 0.75
-                 
+                 margin_factor = 0.75,
+                 pnet_pth="pretrained_models/pnet.pt",
+                 rnet_pth="pretrained_models/rnet.pt",
+                 onet_pth="pretrained_models/onet.pt"
                 ):
         self.keep_top_k = keep_top_k
         self.face_thresholds = face_thresholds
@@ -23,15 +25,19 @@ class FaceModel(object):
         self.image_size = image_size
         self.margin_factor = margin_factor
 
-        self.face_detector = MTCNN(keep_top_k=keep_top_k, device=device,thresholds=face_thresholds, threshold_prob=threshold_prob)
+        self.face_detector = MTCNN(keep_top_k=keep_top_k, device=device,thresholds=face_thresholds, threshold_prob=threshold_prob, pnet_pth=pnet_pth, rnet_pth=rnet_pth, onet_pth=onet_pth)
         self.face_detector.eval();
         
-    def extract_face_sequence_labels(self, batch, sequence_length):
-        ids, batch_sequences, batch_labels, orig_ids = batch
+    def extract_face_sequence_labels(self, batch, sequence_length, test=False):
+        if test:
+            ids, batch_sequences = batch
+        else:
+            ids, batch_sequences, batch_labels, orig_ids = batch
         batch_video_data, batch_video_labels = [], []
         for index, video_sequences in enumerate(batch_sequences):
             video_data = []
-            label = batch_labels[index]
+            if test==False:
+                label = batch_labels[index]
             for sequence in video_sequences:
                 sequence = sequence.float().to(self.device).permute(0,3,1,2)
 
@@ -57,9 +63,11 @@ class FaceModel(object):
                 video_data = torch.stack(video_data,0)
             else:
                 video_data = torch.zeros((0,sequence_length, 3, self.image_size, self.image_size)).to(self.device)
-            labels = (torch.ones(video_data.shape[0],1)*label).to(self.device)
+            if test==False:
+                labels = (torch.ones(video_data.shape[0],1)*label).to(self.device)
+                batch_video_labels.append(labels)
+                
             batch_video_data.append(video_data)
-            batch_video_labels.append(labels)
 #         batch_sequences = torch.cat(batch_video_data,0)
 #         batch_video_labels = torch.cat(batch_video_labels,0)
         return batch_video_data, batch_video_labels
