@@ -94,13 +94,16 @@ def get_samples(batch_sequences, batch_labels, num_samples):
     
     return batch_sequences, batch_labels
 
-def get_normalised_sequences(sample_sequences, transform, isSequenceClassifier):
+def get_normalised_sequences(sample_sequences, transform, isSequenceClassifier, batch_video_labels=None):
     b, s, c, h, w = sample_sequences.shape
     sample_sequences = sample_sequences.view(b*s, c, h, w)
     sample_sequences = transform_batch(sample_sequences, transform)
     if isSequenceClassifier:
         sample_sequences = sample_sequences.view(b,s, c, h, w)
-    return sample_sequences
+        if batch_video_labels is not None:
+            batch_video_labels = batch_video_labels.repeat(1, s).unsqueeze(2)
+
+    return sample_sequences, batch_video_labels
 
 def transform_batch(videos, transform):
     if len(videos)>0:
