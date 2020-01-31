@@ -63,7 +63,8 @@ class Trainer(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         
         self.cb = Callbacks(save_dir=self.save_dir)
-        self.cb.init_wandb(hparams.project_name, hparams, hparams.run_name)
+        if hparams.project_name is not None:
+            self.cb.init_wandb(hparams.project_name, hparams, hparams.run_name)
         self.load_from_checkpoint(self.checkpoint_dir)
         
         
