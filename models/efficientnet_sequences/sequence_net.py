@@ -21,30 +21,31 @@ class SequenceNet(nn.Module):
 
         self.out_act = nn.Sigmoid()
         
-        self.rnn_decoder = DecoderRNN(CNN_embed_dim=300, h_RNN_layers=1, h_RNN=256, h_FC_dim=128, drop_p=0.3, num_classes=1)
+        fc_hidden1, fc_hidden2, embed_dim = 512, 512, 600
         
-        fc_hidden1, fc_hidden2, embed_dim = 512, 512, 300
+        self.rnn_decoder = DecoderRNN(CNN_embed_dim=embed_dim, h_RNN_layers=1, h_RNN=512, h_FC_dim=128, drop_p=0.3, num_classes=1)
         
-        self.fc1 = nn.Linear(1280, fc_hidden1)
-        self.bn1 = nn.BatchNorm1d(fc_hidden1, momentum=0.01)
-        self.fc2 = nn.Linear(fc_hidden1, fc_hidden2)
-        self.bn2 = nn.BatchNorm1d(fc_hidden2, momentum=0.01)
-        self.fc3 = nn.Linear(fc_hidden2, embed_dim)
+        self.lstm_fc1 = nn.Linear(1280, fc_hidden1)
+        self.lstm_bn1 = nn.BatchNorm1d(fc_hidden1, momentum=0.01)
+        self.lstm_fc2 = nn.Linear(fc_hidden1, fc_hidden2)
+        self.lstm_bn2 = nn.BatchNorm1d(fc_hidden2, momentum=0.01)
+        self.lstm_fc3 = nn.Linear(fc_hidden2, embed_dim)
 
     def forward(self, x_3d, model_types = [1]):
         result_x0, result_x1 = [], []
         for t in range(x_3d.size(1)):
-            x = self.efficient_net.extract_features(x_3d[:, t, :, :, :])
-            x = self._avg_pooling(x)
-            x = x.view(x_3d.size(0), -1)
+            with torch.no_grad():
+                x = self.efficient_net.extract_features(x_3d[:, t, :, :, :])
+                x = self._avg_pooling(x)
+                x = x.view(x_3d.size(0), -1)
             
             if 1 in model_types:
-                x_1 = self.bn1(self.fc1(x))
+                x_1 = self.lstm_bn1(self.lstm_fc1(x))
                 x_1 = F.relu(x_1)
-                x_1 = self.bn2(self.fc2(x_1))
+                x_1 = self.lstm_bn2(self.lstm_fc2(x_1))
                 x_1 = F.relu(x_1)
                 x_1 = self._dropout(x_1)
-                x_1 = self.fc3(x_1)
+                x_1 = self.lstm_fc3(x_1)
                 result_x1.append(x_1)
                 
             if 0 in model_types:
@@ -56,7 +57,6 @@ class SequenceNet(nn.Module):
                 
         if 0 in model_types:
             x_0 = torch.stack(result_x0, dim=0).transpose_(0, 1)
-            print(x_0.shape)
             return x_0
         
         if 1 in model_types:

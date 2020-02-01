@@ -61,7 +61,19 @@ class Trainer(object):
         self.model = SequenceNet(self.network_name).to(self.device)
         self.criterion = torch.nn.BCELoss()
         self.log_loss_criterion = torch.nn.BCELoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        
+        #### ------------------------
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                if 'efficient_net' in name or name in ['_fc.weight', '_fc.bias']:
+                    param.requires_grad = False
+        params = list(self.model.rnn_decoder.parameters()) + list(self.model.lstm_fc1.parameters()) + \
+                  list(self.model.lstm_fc2.parameters()) + list(self.model.lstm_bn1.parameters()) + \
+                  list(self.model.lstm_bn2.parameters()) + list(self.model.lstm_fc3.parameters())
+        
+        self.optimizer = torch.optim.Adam(params, lr=self.lr)
+        #### ------------------------
+#         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         
         self.cb = Callbacks(save_dir=self.save_dir)
         if hparams.project_name is not None:
@@ -110,10 +122,10 @@ class Trainer(object):
             batch_sequences = torch.cat(batch_sequences,0)
             batch_video_labels = torch.cat(batch_video_labels,0)
             batch_sequences, batch_video_labels = get_samples(batch_sequences, batch_video_labels, num_samples=self.num_samples)
-            batch_sequences, batch_video_labels = get_normalised_sequences(batch_sequences, self.transform, self.isSequenceClassifier, batch_video_labels)
+            batch_sequences, _ = get_normalised_sequences(batch_sequences, self.transform, self.isSequenceClassifier)
         
         
-        batch_predicted = self.model(batch_sequences)
+        batch_predicted = self.model(batch_sequences, model_types = [1])
         loss = self.criterion(batch_predicted, batch_video_labels)
 
         self.cb.logger.update_metric(loss.item(), "train_batch_loss")
@@ -127,13 +139,13 @@ class Trainer(object):
             batch_sequences, batch_video_labels = self.FM.extract_face_sequence_labels(batch, self.sequence_length)
 
             for idx, (sequences, labels) in enumerate(zip(batch_sequences, batch_video_labels)):
-                sequences, labels = get_normalised_sequences(sequences, self.transform, self.isSequenceClassifier, labels)
+                sequences, _ = get_normalised_sequences(sequences, self.transform, self.isSequenceClassifier)
 
                 if len(sequences) == 0:
                     predicted = torch.tensor([[0.5]]).to(self.device)
                     labels = torch.tensor([[1.0]]).to(self.device)
                 else:
-                    predicted = self.model(sequences)
+                    predicted = self.model(sequences, model_types = [1])
                 loss = self.criterion(predicted, labels)
                 log_loss = self.log_loss_criterion(predicted.mean(axis=0), labels[0])
 
