@@ -20,7 +20,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_samples', default=16, type=int)
     parser.add_argument('--is_sequence_classifier', dest='is_sequence_classifier', action='store_true')
-
+    parser.add_argument('--is_model_only', dest='is_model_only', action='store_true')
+    
     parser.add_argument('--network_name', type=str)
     parser.add_argument('--epochs', default=3, type=int)
     parser.add_argument('--save_dir', default=None, type=str)
