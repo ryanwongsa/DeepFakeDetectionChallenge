@@ -14,6 +14,7 @@ class Callbacks(object):
         self.logger = MetricLogger()
         
         self.log_every = 10
+        self.has_wandb =False
         
 
     def init_wandb(self, project_name, hparams, run_name=None):
@@ -22,6 +23,7 @@ class Callbacks(object):
         else:
             wandb.init(project=project_name, allow_val_change=True)
         wandb.config.update(hparams, allow_val_change=True)
+        self.has_wandb =True
         
     def on_train_start(self, data_dict=None):
         self.logger.reset_metrics(["train_mean_loss"])
@@ -68,5 +70,6 @@ class Callbacks(object):
         if dict_logs != {}:
             if sendAlways or self.step%self.log_every == 0:
                 dict_logs["custom_step"]=self.step
-                wandb.log(dict_logs)
+                if self.has_wandb:
+                    wandb.log(dict_logs)
         
