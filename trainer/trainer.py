@@ -68,7 +68,7 @@ class Trainer(object):
         self.log_loss_criterion = torch.nn.BCELoss()
         
         #### ------------------------
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
         
         self.cb = Callbacks(save_dir=self.save_dir)
         if hparams.project_name is not None:
