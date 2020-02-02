@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class DecoderRNN(nn.Module):
     def __init__(self, CNN_embed_dim=300, h_RNN_layers=1, h_RNN=256, h_FC_dim=128, drop_p=0.3, num_classes=1):
         super(DecoderRNN, self).__init__()

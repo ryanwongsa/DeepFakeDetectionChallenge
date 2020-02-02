@@ -3,7 +3,7 @@ from feature_detectors.face_detectors.facenet.face_model import FaceModel, get_n
 from torchvision import transforms
 import torch
 from models.efficientnet.net import Net
-from models.efficientnet_sequences.sequence_net import SequenceNet
+from models.vgg_net.sequence_net import SequenceNet
 from logger.callbacks import Callbacks
 from torch.utils.data import DataLoader
 from logger.checkpointer_saver import load_checkpoint
@@ -58,22 +58,17 @@ class Trainer(object):
         
         self.transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
         
-        self.model = SequenceNet(self.network_name).to(self.device)
+        if "efficientnet" in self.network_name:
+            self.model = Net(self.network_name).to(self.device)
+            
+        if self.network_name == 'sequence-vgg':
+            self.model = SequenceNet().to(self.device)
+            
         self.criterion = torch.nn.BCELoss()
         self.log_loss_criterion = torch.nn.BCELoss()
         
         #### ------------------------
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                if 'efficient_net' in name or name in ['_fc.weight', '_fc.bias']:
-                    param.requires_grad = False
-        params = list(self.model.rnn_decoder.parameters()) + list(self.model.lstm_fc1.parameters()) + \
-                  list(self.model.lstm_fc2.parameters()) + list(self.model.lstm_bn1.parameters()) + \
-                  list(self.model.lstm_bn2.parameters()) + list(self.model.lstm_fc3.parameters())
-        
-        self.optimizer = torch.optim.Adam(params, lr=self.lr)
-        #### ------------------------
-#         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         
         self.cb = Callbacks(save_dir=self.save_dir)
         if hparams.project_name is not None:
@@ -125,7 +120,7 @@ class Trainer(object):
             batch_sequences, _ = get_normalised_sequences(batch_sequences, self.transform, self.isSequenceClassifier)
         
         
-        batch_predicted = self.model(batch_sequences, model_types = [1])
+        batch_predicted = self.model(batch_sequences)
         loss = self.criterion(batch_predicted, batch_video_labels)
 
         self.cb.logger.update_metric(loss.item(), "train_batch_loss")
@@ -145,7 +140,7 @@ class Trainer(object):
                     predicted = torch.tensor([[0.5]]).to(self.device)
                     labels = torch.tensor([[1.0]]).to(self.device)
                 else:
-                    predicted = self.model(sequences, model_types = [1])
+                    predicted = self.model(sequences)
                 loss = self.criterion(predicted, labels)
                 log_loss = self.log_loss_criterion(predicted.mean(axis=0), labels[0])
 
