@@ -28,14 +28,16 @@ def save_checkpoint(data_dict, save_dir, step_num=0):
     with open(save_dir+"-"+str(step_num)+".pkl", 'wb') as output:
         pickle.dump(data_dict["callbacks"], output, pickle.HIGHEST_PROTOCOL)
 
-def load_checkpoint(model, optimizer, callbacks, checkpoint_dir):
+def load_checkpoint(model, optimizer, callbacks, checkpoint_dir, is_model_only = False):
     if checkpoint_dir != None:
         print("Loading from checkpoint:", checkpoint_dir)
         checkpoint = torch.load(checkpoint_dir+".ckpt")
-        model.load_state_dict(checkpoint['model'])    
-        optimizer.load_state_dict(checkpoint['optimizer'])
-#         scheduler.load_state_dict(checkpoint['scheduler'])
-        
-        with open(checkpoint_dir+".pkl", 'rb') as output:
-            callbacks = pickle.load(output)
+        model.load_state_dict(checkpoint['model'])
+        if is_model_only == False:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            # scheduler.load_state_dict(checkpoint['scheduler'])
+            with open(checkpoint_dir+".pkl", 'rb') as output:
+                callbacks = pickle.load(output)
+
     return {"model":model, "optimizer": optimizer, "callbacks":callbacks}
+

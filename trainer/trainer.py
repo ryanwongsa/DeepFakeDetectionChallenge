@@ -58,6 +58,8 @@ class Trainer(object):
         
         self.transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
         
+        self.is_model_only = hparams.is_model_only
+        
         if "efficientnet" in self.network_name:
             self.model = Net(self.network_name).to(self.device)
             
@@ -78,7 +80,7 @@ class Trainer(object):
         
     def load_from_checkpoint(self, checkpoint_dir):
         if self.checkpoint_dir is not None:
-            dict_checkpoints = load_checkpoint(self.model, self.optimizer, self.cb, self.checkpoint_dir)
+            dict_checkpoints = load_checkpoint(self.model, self.optimizer, self.cb, self.checkpoint_dir, self.is_model_only)
             self.model = dict_checkpoints["model"]
             self.optimizer = dict_checkpoints["optimizer"]
             self.cb = dict_checkpoints["callbacks"]
