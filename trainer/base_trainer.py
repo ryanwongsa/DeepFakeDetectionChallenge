@@ -2,12 +2,17 @@ import torch
 from utils.lr_finder import ExponentialLR, LinearLR
 from tqdm.auto import tqdm
 
+import pickle
+import os
 try:
     from apex import amp
-    HAS_AMP = True
-except Exception as e:
-    HAS_AMP = False
-    
+except:
+    pass
+
+def make_save_dir(save_dir):
+    if save_dir != None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
 class BaseTrainer(object):
     def __init__(self):
@@ -21,7 +26,49 @@ class BaseTrainer(object):
         
     def batch_valid_step(self, batch, index):
         raise NotImplementedError()
-        
+    
+    def save_checkpoint(self, step_num, save_dir):
+        if save_dir != None:
+            print("Saving checkpoint to:", save_dir+"-"+str(step_num))
+            make_save_dir('/'.join(save_dir.split('/')[:-1]))
+
+            if torch.cuda.device_count() > 1:
+                dict_save = {
+                    "model": self.model.module.state_dict()
+                }
+            else:
+                dict_save = {
+                    "model": self.model.state_dict(),
+                }
+            dict_save["optimizer"] = self.optimizer.state_dict()
+
+            if self.scheduler is not None:
+                dict_save["scheduler"] = self.scheduler.state_dict()
+
+            if self.use_amp:
+                dict_save["amp"] = amp.state_dict()
+
+            torch.save(dict_save, save_dir+"-"+str(step_num)+".ckpt")
+
+            with open(save_dir+"-"+str(step_num)+".pkl", 'wb') as output:
+                pickle.dump(self.cb, output, pickle.HIGHEST_PROTOCOL)
+
+    def load_checkpoint(self, checkpoint_dir, is_model_only = False):
+        if checkpoint_dir != None:
+            print("Loading from checkpoint:", checkpoint_dir)
+            checkpoint = torch.load(checkpoint_dir+".ckpt")
+            self.model.load_state_dict(checkpoint['model'])
+            if is_model_only == False:
+                if 'optimizer' in checkpoint:
+                    self.optimizer.load_state_dict(checkpoint['optimizer'])
+                if 'scheduler' in checkpoint:
+                    self.scheduler.load_state_dict(checkpoint['scheduler'])
+                with open(checkpoint_dir+".pkl", 'rb') as output:
+                    self.cb = pickle.load(output)
+
+                if "amp" in checkpoint and self.use_amp:
+                    amp.load_state_dict(checkpoint["amp"])
+    
     '''
     1. Train Main
     '''
@@ -55,7 +102,7 @@ class BaseTrainer(object):
     1.1.3. batch backpass
     '''
     def loss_backpass(self, loss):
-        if HAS_AMP and self.use_amp:
+        if self.use_amp:
             with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
@@ -90,11 +137,13 @@ class BaseTrainer(object):
             self.train_on_dl()
             self.valid_on_dl()
             self.cb.on_epoch_end()
+            self.save_checkpoint(self.cb.step, self.save_dir)
     
     '''
     Use this method to ensure the model can actually overfit on one batch
     '''
-    def train_on_sample(self, steps=100,batch=None):
+    def train_on_sample(self, steps=100, log_every=10, batch=None):
+        self.cb.log_every = log_every
         if batch is None:
             batch = next(iter(self.trainloader))
             
@@ -115,7 +164,8 @@ class BaseTrainer(object):
     '''
     Use this method to find good learning rates
     '''
-    def lr_finder(self, num_iter, start_lr, end_lr, step_mode="linear", stop_factor=5):
+    def lr_finder(self, num_iter, start_lr, end_lr, step_mode="linear", stop_factor=5, log_every=1):
+        self.cb.log_every=log_every
         self.init_optimizer(lr=start_lr)
         if step_mode.lower() == "exp":
             lr_schedule = ExponentialLR(self.optimizer, end_lr, num_iter)
