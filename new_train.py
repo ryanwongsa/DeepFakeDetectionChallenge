@@ -37,10 +37,10 @@ if __name__ == '__main__':
     parser.add_argument('--project_name', default=None, type=str)
     parser.add_argument('--run_name', default=None, type=str)
 
-    parser.add_argument('--optimizer_name', type=str)
-    parser.add_argument('--scheduler_name', type=str)
-    parser.add_argument('--criterion_name', type=str)
-    parser.add_argument('--tuning_type', type=str)
+    parser.add_argument('--optimizer_name', type=str, default='default')
+    parser.add_argument('--scheduler_name', type=str, default='default')
+    parser.add_argument('--criterion_name', type=str, default='default')
+    parser.add_argument('--tuning_type', type=str, default='default')
     parser.add_argument('--device', type=str, default='cuda')
 
     parser.add_argument('--use_amp', dest='use_amp', action='store_true')

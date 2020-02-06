@@ -1,8 +1,11 @@
+import torch
+torch.backends.cudnn.benchmark = True
+
 from trainer.base_trainer import BaseTrainer
 from dataloader.video_sequence_dataset import VideoSequenceDataset
 from feature_detectors.face_detectors.facenet.face_model import FaceModel, get_normalised_sequences, get_samples, get_image
 from torchvision import transforms
-import torch
+
 from models.efficientnet.net import Net
 from models.vgg_net.sequence_net import SequenceNet
 from logger.new_callbacks import Callbacks
@@ -83,7 +86,7 @@ class Trainer(BaseTrainer):
         if self.network_name == 'sequence-vgg':
             self.model = SequenceNet()
             
-        self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor)
+        self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=False)
     
     def set_tuning_parameters(self):
         # self.tuning_type
