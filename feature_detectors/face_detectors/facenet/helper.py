@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from torchvision.ops.boxes import batched_nms, nms
 import torch.nn.functional as F
 
-def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
+def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_half):
 
     batch_size = len(imgs)
     h, w = imgs.shape[2:4]
@@ -25,7 +25,7 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device):
         reg, probs = pnet(im_data)
 
         for b_i in range(batch_size):
-            boxes = generateBoundingBox(reg[b_i], probs[b_i, 1], scale, threshold[0])
+            boxes = generateBoundingBox(reg[b_i], probs[b_i, 1], scale, threshold[0], is_half)
             # inter-scale nms
             pick = nms(boxes[:,0:4], boxes[:,4], 0.5)
             if boxes.shape[0] > 0 and pick.shape[0] > 0:
@@ -169,14 +169,18 @@ def bbreg(boundingbox, reg):
     return boundingbox
 
 
-def generateBoundingBox(reg, probs, scale, thresh):
+def generateBoundingBox(reg, probs, scale, thresh, is_half):
     stride = 2
     cellsize = 12
 
     mask = probs >= thresh
     score = probs[mask]
     reg = reg[:, mask].permute(1, 0)
-    bb = mask.nonzero().float().flip(1)
+    bb = mask.nonzero()
+    if is_half:
+        bb = bb.half().flip(1)
+    else:
+        bb = bb.float().flip(1)
     q1 = ((stride * bb + 1) / scale).floor()
     q2 = ((stride * bb + cellsize - 1 + 1) / scale).floor()
     boundingbox = torch.cat([q1, q2, score.unsqueeze(1), reg], dim=1)

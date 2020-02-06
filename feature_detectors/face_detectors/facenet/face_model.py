@@ -15,7 +15,8 @@ class FaceModel(object):
                  margin_factor = 0.75,
                  pnet_pth="pretrained_models/pnet.pt",
                  rnet_pth="pretrained_models/rnet.pt",
-                 onet_pth="pretrained_models/onet.pt"
+                 onet_pth="pretrained_models/onet.pt",
+                 is_half = True,
                 ):
         self.keep_top_k = keep_top_k
         self.face_thresholds = face_thresholds
@@ -23,9 +24,17 @@ class FaceModel(object):
         self.device = device
 
         self.image_size = image_size
+        self.is_half = is_half
         self.margin_factor = margin_factor
 
-        self.face_detector = MTCNN(keep_top_k=keep_top_k, device=device,thresholds=face_thresholds, threshold_prob=threshold_prob, pnet_pth=pnet_pth, rnet_pth=rnet_pth, onet_pth=onet_pth)
+        self.face_detector = MTCNN(keep_top_k=keep_top_k, device=device,thresholds=face_thresholds, threshold_prob=threshold_prob, pnet_pth=pnet_pth, rnet_pth=rnet_pth, onet_pth=onet_pth, is_half = self.is_half)
+        
+        if torch.cuda.device_count() > 1 and self.device == 'cuda':
+            print("Using Multiple GPUs for face detection")
+            self.face_detector = torch.nn.DataParallel(self.face_detector, device_ids=range(torch.cuda.device_count())) 
+        self.face_detector.to(self.device);
+        if self.is_half:
+            self.face_detector.half()
         self.face_detector.eval();
         
     def extract_face_sequence_labels(self, batch, sequence_length, test=False):
@@ -39,7 +48,12 @@ class FaceModel(object):
             if test==False:
                 label = batch_labels[index]
             for sequence in video_sequences:
-                sequence = sequence.float().to(self.device).permute(0,3,1,2)
+                
+                if self.is_half:
+                    sequence = sequence.half()
+                else:
+                    sequence = sequence.float()
+                sequence = sequence.to(self.device).permute(0,3,1,2)
 
                 index_face_analysis = sequence_length//2
                 # TODO: update this dynamically based on video size
@@ -66,7 +80,8 @@ class FaceModel(object):
             if test==False:
                 labels = (torch.ones(video_data.shape[0],1)*label).to(self.device)
                 batch_video_labels.append(labels)
-                
+            if self.is_half:
+                video_data = video_data.float()
             batch_video_data.append(video_data)
 #         batch_sequences = torch.cat(batch_video_data,0)
 #         batch_video_labels = torch.cat(batch_video_labels,0)
