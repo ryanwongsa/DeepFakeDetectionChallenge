@@ -13,7 +13,10 @@ from torch.utils.data import DataLoader
 
 from augmentations.augment import base_aug
 import cProfile
-
+try:
+    from apex import amp
+except:
+    pass
 transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
 class Trainer(BaseTrainer):
@@ -64,20 +67,20 @@ class Trainer(BaseTrainer):
         if hparams.project_name is not None:
             self.cb.init_wandb(hparams.project_name, hparams, hparams.run_name)
         
-        if self.use_amp:
-            self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
-        
         if torch.cuda.device_count() > 1 and self.device == 'cuda':
             print("Using Multiple GPUs")
             self.model = torch.nn.DataParallel(self.model, device_ids=range(torch.cuda.device_count())) 
         self.model.to(self.device)
+
+        if self.use_amp:
+            self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
         
         self.load_checkpoint(self.checkpoint_dir, is_model_only=self.load_model_only)
 
     def init_criterion(self):
         # self.criterion_name
-        self.criterion = torch.nn.BCELoss()
-        self.log_loss_criterion = torch.nn.BCELoss()
+        self.criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
+        self.log_loss_criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
     
     def init_model(self):
         # self.network_name
@@ -87,7 +90,7 @@ class Trainer(BaseTrainer):
         if self.network_name == 'sequence-vgg':
             self.model = SequenceNet()
             
-        self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=False)
+        self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=True)
     
     def set_tuning_parameters(self):
         # self.tuning_type

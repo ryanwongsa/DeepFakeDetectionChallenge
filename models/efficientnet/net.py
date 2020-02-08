@@ -26,5 +26,5 @@ class Net(nn.Module):
         x = x.view(bs, -1)
         x = self._dropout(x)
         x = self._fc(x)
-        x = self.out_act(x)
+        # x = self.out_act(x)
         return x
