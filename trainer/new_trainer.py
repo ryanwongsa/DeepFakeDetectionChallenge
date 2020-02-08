@@ -127,16 +127,18 @@ class Trainer(BaseTrainer):
         self.cb.on_batch_train_step_start()
         
         batch_sequences, batch_video_labels = batch
-        batch_predicted = self.model(batch_sequences)
-        loss = self.criterion(batch_predicted, batch_video_labels)
-        
+        if batch_sequences.shape[0] != 0:
+            batch_predicted = self.model(batch_sequences)
+            loss = self.criterion(batch_predicted, batch_video_labels)
+        else:
+            loss = torch.tensor(0.6931471805599453)
+            
         dict_metrics = {"train_batch_loss":loss.item()}
         if self.scheduler is not None:
             dict_metrics["lr"] = self.scheduler.get_lr()[0]
 
         self.cb.on_batch_train_step_end(dict_metrics)
         return loss
-    
     '''
     2.1.2. batch valid
     '''

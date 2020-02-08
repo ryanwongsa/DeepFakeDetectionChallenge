@@ -1,4 +1,5 @@
 from logger.metric_logger import MetricLogger
+import wandb
 
 class Callbacks(object):
     def __init__(self, step=0, initial_epoch=0, log_every=10, save_dir=None):
