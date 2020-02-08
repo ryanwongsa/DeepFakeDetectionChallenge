@@ -36,7 +36,65 @@ class FaceModel(object):
         if self.is_half:
             self.face_detector.half()
         self.face_detector.eval();
-        
+    
+    
+    def extract_face_sequence_labels_v2_slow(self, batch, sequence_length, test=False, add_aug=False):
+        if test:
+            ids, batch_videos = batch
+        else:
+            ids, batch_videos, batch_labels, orig_ids = batch
+        batch_video_data, batch_video_labels = [], []
+        for v, sequences in enumerate(batch_videos):
+            if test==False:
+                label = batch_labels[v]
+
+            b, s, h, w, c = sequences.shape
+
+            if self.is_half: 
+                norm_images = sequences.view(-1, h, w, c).permute(0,3,1,2).half().to(self.device)
+            else:
+                norm_images = sequences.view(-1, h, w, c).permute(0,3,1,2).float().to(self.device)
+            if add_aug:
+                # TODO CREATE ADDITIONAL AUGMENTATION OF RESIZE THE IMAGE
+                pass
+
+            boxes, probs = self.face_detector(norm_images, min_face_size=20, return_prob=True)
+            counter = 0
+            video_data = []
+            for sequence in sequences:
+                middle_img_index = sequence_length//2
+
+                middle_face_index = middle_img_index + counter
+                bboxes = boxes[middle_face_index]
+                pprobs = probs[middle_face_index]
+                if bboxes is not None:
+                    for box, prob in zip(bboxes, pprobs):
+                        box_height = box[3]-box[1]
+                        margin = (box_height/self.margin_factor - box_height).round().int() 
+                        faces, _ = extract_face(norm_images[counter: counter+sequence_length], box, margin)
+                        standard_faces = standardise_img(faces, self.image_size) 
+                        video_data.append(standard_faces)
+
+                else:
+                    # TODO: maybe display the image to identify the issue
+                    pass
+                counter += len(sequence)
+
+            if len(video_data) > 0:
+                video_data = torch.stack(video_data,0)
+            else:
+                video_data = torch.zeros((0, sequence_length, 3, self.image_size, self.image_size)).to(self.device) 
+
+            if test==False:
+                labels = torch.ones(video_data.shape[0],1)*label.to(self.device)
+                batch_video_labels.append(labels)
+
+            if self.is_half:
+                video_data = video_data.float()
+            batch_video_data.append(video_data)
+        return batch_video_data, batch_video_labels
+    
+    
     def extract_face_sequence_labels(self, batch, sequence_length, test=False):
         if test:
             ids, batch_sequences = batch
@@ -48,7 +106,6 @@ class FaceModel(object):
             if test==False:
                 label = batch_labels[index]
             for sequence in video_sequences:
-                
                 if self.is_half:
                     sequence = sequence.half()
                 else:

@@ -163,10 +163,10 @@ class MTCNN(nn.Module):
         return batch_boxes, batch_probs
         
 
-    def detect(self, img, min_face_size=10, landmarks=False):
+    def detect(self, img, min_face_size=10):
 
         with torch.no_grad():
-            batch_boxes, batch_points = detect_face(
+            batch_boxes = detect_face(
                 img, min_face_size,
                 self.pnet, self.rnet, self.onet,
                 self.thresholds, self.factor,
@@ -174,27 +174,29 @@ class MTCNN(nn.Module):
                 self.is_half
             )
 
-        boxes, probs, points = [], [], []
-        for box, point in zip(batch_boxes, batch_points):
-            box = box[box[:,4]>self.threshold_prob]
+        boxes, probs = [], []
+        for box in batch_boxes:
+            box_new = box[box[:,4]>self.threshold_prob]
+            lowered_threshold = False
+            if len(box_new)==0:
+                box_new = box[box[:,4]>0.7]
+                lowered_threshold = True
+            box = box_new    
             if len(box) == 0:
                 boxes.append(None)
                 probs.append([None])
-                points.append([None])
             else:
-                _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]), descending=True)
                 
-                keep = min(len(box_order), self.keep_top_k)
+                _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]), descending=True)
+                if lowered_threshold == False:
+                    keep = min(len(box_order), self.keep_top_k)
+                else:
+                    keep = min(len(box_order), 1)
                 box_order = box_order[0:keep]
                 
                 box_i = box[box_order][:,0:4]
                 prob_i = box[box_order][:, 4]
-                point_i = point[box_order]
                 boxes.append(box_i)
                 probs.append(prob_i)
-                points.append(point_i)
-                
-        if landmarks:
-            return boxes, probs, points
 
         return boxes, probs

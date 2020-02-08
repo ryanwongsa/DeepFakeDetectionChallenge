@@ -8,6 +8,7 @@ try:
     from apex import amp
 except:
     pass
+import cProfile
 
 def make_save_dir(save_dir):
     if save_dir != None:
@@ -138,6 +139,9 @@ class BaseTrainer(object):
             self.valid_on_dl()
             self.cb.on_epoch_end()
             self.save_checkpoint(self.cb.step, self.save_dir)
+    
+    def get_batch(self):
+        return next(iter(self.trainloader))
     
     '''
     Use this method to ensure the model can actually overfit on one batch
