@@ -52,7 +52,7 @@ class Trainer(BaseTrainer):
         self.load_model_only = hparams.load_model_only
         self.tuning_type = hparams.tuning_type
         
-        self.cb = Callbacks(save_dir=self.save_dir)
+        self.cb = Callbacks(log_every=1, save_dir=self.save_dir)
         
         self.init_train_dataloader(base_aug, length=train_length)
         self.init_valid_dataloader(length = valid_length)
