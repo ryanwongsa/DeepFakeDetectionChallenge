@@ -12,6 +12,9 @@ from logger.new_callbacks import Callbacks
 from torch.utils.data import DataLoader
 
 from augmentations.augment import base_aug
+
+from utils.schedulers import GradualWarmupScheduler
+
 import cProfile
 try:
     from apex import amp
@@ -104,7 +107,14 @@ class Trainer(BaseTrainer):
     
     def init_scheduler(self):
         # self.scheduler_name
-        self.scheduler = None
+        if self.scheduler_name == "warmup-with-cosine":
+            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.epochs*len(self.trainloader))
+            self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
+        elif self.scheduler_name == "warmup-with-reduce":
+            scheduler_relrplat = ReduceLROnPlateau(self.optimizer, 'min', patience=50, cooldown=50)
+            self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_relrplat)
+        else:
+            self.scheduler = None
         
     '''
     1.1.1. batch process

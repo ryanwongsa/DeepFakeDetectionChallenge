@@ -87,17 +87,17 @@ class BaseTrainer(object):
     '''
     def batch_train(self, batch, index):
         self.cb.on_batch_train_start()
-        try:
-            batch = self.batch_process(batch, index, isTraining=True)
-            loss = self.batch_train_step(batch, index)
-            self.loss_backpass(loss)
-            if (index+1)%self.grad_acc_num == 0:
-                self.optimizer.step()
-                if self.scheduler is not None:
-                    self.scheduler.step()
-                self.optimizer.zero_grad()
-        except Exception as e:
-            print(e)
+#         try:
+        batch = self.batch_process(batch, index, isTraining=True)
+        loss = self.batch_train_step(batch, index)
+        self.loss_backpass(loss)
+        if (index+1)%self.grad_acc_num == 0:
+            self.optimizer.step()
+            if self.scheduler is not None:
+                self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"))
+            self.optimizer.zero_grad()
+#         except Exception as e:
+#             print(e)
         self.cb.on_batch_train_end()
 
     '''
