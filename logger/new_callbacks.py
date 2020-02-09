@@ -1,6 +1,8 @@
 from logger.metric_logger import MetricLogger
-import wandb
-
+try:
+    import wandb
+except:
+    pass
 class Callbacks(object):
     def __init__(self, step=0, initial_epoch=0, log_every=10, save_dir=None):
         self.save_dir = save_dir
@@ -9,7 +11,7 @@ class Callbacks(object):
         self.initial_epoch = initial_epoch
         self.epoch = initial_epoch
         self.logger = MetricLogger()
-        
+
         self.logger.reset_metrics(["train_mean_loss"])
 
         self.log_every = log_every
