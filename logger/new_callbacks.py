@@ -28,7 +28,8 @@ class Callbacks(object):
         self.epoch += 1
         
     def on_train_dl_start(self, dict_data={}):
-        self.logger.reset_metrics(["train_mean_loss"])
+        pass
+        # self.logger.reset_metrics(["train_mean_loss"])
     
     def on_train_dl_end(self, dict_data={}):
         print("TRAIN:", self.epoch, self.step, self.logger.get("train_mean_loss"))
