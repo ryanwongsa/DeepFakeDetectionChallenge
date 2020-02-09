@@ -17,7 +17,7 @@ def make_save_dir(save_dir):
 
 class BaseTrainer(object):
     def __init__(self):
-        pass
+        self.is_lr_finder = False
     
     def batch_process(self, index=None, isTraining=True):
         raise NotImplementedError()
@@ -93,8 +93,10 @@ class BaseTrainer(object):
         self.loss_backpass(loss)
         if (index+1)%self.grad_acc_num == 0:
             self.optimizer.step()
-            if self.scheduler is not None:
+            if self.scheduler is not None and self.is_lr_finder == False:
                 self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"))
+            elif self.is_lr_finder:
+                self.scheduler.step()
             self.optimizer.zero_grad()
 #         except Exception as e:
 #             print(e)
@@ -171,6 +173,7 @@ class BaseTrainer(object):
     '''
     def lr_finder(self, num_iter, start_lr, end_lr, step_mode="linear", stop_factor=5, log_every=1):
         self.cb.log_every=log_every
+        self.is_lr_finder = True
         self.init_optimizer(lr=start_lr)
         if step_mode.lower() == "exp":
             lr_schedule = ExponentialLR(self.optimizer, end_lr, num_iter)
@@ -214,4 +217,5 @@ class BaseTrainer(object):
             lrs.append(lr)
             losses.append(loss)
         print("If running in a notebook, don't forget to reset the trainer")
+        self.is_lr_finder = False
         return lrs, losses, min_lr_index
