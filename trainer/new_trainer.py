@@ -25,6 +25,8 @@ transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.2
 
 class Trainer(BaseTrainer):
     def __init__(self, hparams, train_length=None, valid_length=None):
+        self.is_lr_finder = False
+        
         self.sequence_length = hparams.sequence_length
         self.num_sequences = hparams.num_sequences
         self.batch_size = hparams.batch_size
