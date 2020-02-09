@@ -29,7 +29,7 @@ class GradualWarmupScheduler(_LRScheduler):
                 if type(self.after_scheduler) != ReduceLROnPlateau:
                     return self.after_scheduler.get_lr()
                 else:
-                    return self.optimizer.param_groups[0]['lr']
+                    return [self.optimizer.param_groups[0]['lr']]
             return [base_lr * self.multiplier for base_lr in self.base_lrs]
 
         if self.multiplier == 1.0:
