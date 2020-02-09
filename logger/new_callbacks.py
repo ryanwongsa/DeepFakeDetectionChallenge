@@ -10,6 +10,8 @@ class Callbacks(object):
         self.epoch = initial_epoch
         self.logger = MetricLogger()
         
+        self.logger.reset_metrics(["train_mean_loss"])
+
         self.log_every = log_every
         self.has_wandb = False
     

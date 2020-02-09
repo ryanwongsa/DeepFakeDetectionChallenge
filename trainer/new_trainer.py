@@ -178,7 +178,7 @@ class Trainer(BaseTrainer):
         self.trainloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers= self.num_workers, collate_fn= train_dataset.collate_fn, pin_memory= True,  drop_last = True,worker_init_fn=train_dataset.init_workers_fn)
         
     def init_valid_dataloader(self, length = None):
-        valid_dataset = VideoSequenceDataset(self.valid_dir, self.valid_meta_file,  transform=None, isBalanced=False, num_sequences=5,  sequence_length=self.sequence_length, select_type="ordered", isValid=True)
+        valid_dataset = VideoSequenceDataset(self.valid_dir, self.valid_meta_file,  transform=None, isBalanced=False, num_sequences=5, sequence_length=self.sequence_length, select_type="ordered", isValid=True)
         if length is not None:
             valid_dataset.length = length
         self.validloader = DataLoader(valid_dataset, batch_size= self.batch_size, shuffle= False, num_workers= self.num_workers, collate_fn= valid_dataset.collate_fn, pin_memory= True, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
