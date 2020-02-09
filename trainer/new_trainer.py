@@ -111,7 +111,7 @@ class Trainer(BaseTrainer):
             scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.epochs*len(self.trainloader))
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
         elif self.scheduler_name == "warmup-with-reduce":
-            scheduler_relrplat = ReduceLROnPlateau(self.optimizer, 'min', patience=50, cooldown=50)
+            scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', patience=50, cooldown=50)
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_relrplat)
         else:
             self.scheduler = None
