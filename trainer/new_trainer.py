@@ -8,6 +8,7 @@ from torchvision import transforms
 
 from models.efficientnet.net import Net
 from models.vgg_net.sequence_net import SequenceNet
+from models.resnext50_sequence.resnext_sequence_model import SequenceModelResnext
 from logger.new_callbacks import Callbacks
 from torch.utils.data import DataLoader
 
@@ -93,6 +94,9 @@ class Trainer(BaseTrainer):
         if self.network_name == 'sequence-vgg':
             self.model = SequenceNet()
             
+        if self.network_name == 'sequence-resnext':
+            self.model = SequenceModelResnext()
+            
         self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=True)
     
     def set_tuning_parameters(self):
@@ -103,7 +107,10 @@ class Trainer(BaseTrainer):
         # self.optimizer_name
         if lr is not None:
             self.lr = lr
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+        if self.network_name == 'sequence-resnext':
+            self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr)
+        else:
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
     
     def init_scheduler(self):
         # self.scheduler_name
