@@ -185,6 +185,12 @@ class BaseTrainer(object):
         self.init_model()
         self.set_tuning_parameters()
         self.init_optimizer(lr=start_lr)
+
+        if torch.cuda.device_count() > 1 and self.device == 'cuda':
+            print("Using Multiple GPUs")
+            self.model = torch.nn.DataParallel(self.model, device_ids=range(torch.cuda.device_count())) 
+        self.model.to(self.device)
+
         if self.use_amp:
             self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
         if self.cb.has_wandb:
