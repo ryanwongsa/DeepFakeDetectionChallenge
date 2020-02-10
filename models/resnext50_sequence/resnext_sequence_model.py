@@ -49,7 +49,7 @@ class DecoderRNN(nn.Module):
             input_size=2048,
             hidden_size=1024,
             num_layers=2,
-            dropout=0.5,
+            dropout=0.1,
             batch_first=True,       # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
         )
 
@@ -65,7 +65,7 @@ class DecoderRNN(nn.Module):
 
         x = self.fc1(RNN_out[:, -1, :])   # choose RNN_out at the last time step
         x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=0.1, training=self.training)
         x = self.fc2(x)
 
         return x
