@@ -96,6 +96,12 @@ class BaseTrainer(object):
         batch = self.batch_process(batch, index, isTraining=True)
         loss = self.batch_train_step(batch, index)
         self.loss_backpass(loss)
+        if self.grad_clip:
+            if self.use_amp:
+                torch.nn.utils.clip_grad_value_(amp.master_params(self.optimizer), self.clip_val)
+            else:
+                torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_val)
+
         if (index+1)%self.grad_acc_num == 0:
             self.optimizer.step()
             if self.scheduler is not None and self.is_lr_finder == False:

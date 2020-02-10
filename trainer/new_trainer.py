@@ -110,7 +110,11 @@ class Trainer(BaseTrainer):
     
     def set_tuning_parameters(self):
         # self.tuning_type
-        pass
+        self.grad_clip = False
+        if self.tuning_type=="grad_clip":
+            self.clip_val = 2
+            print("Applying gradient clipping:", self.clip_val)
+            self.grad_clip = True
     
     def init_optimizer(self, lr=None):
         # self.optimizer_name
