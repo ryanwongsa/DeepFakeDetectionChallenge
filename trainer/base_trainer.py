@@ -101,7 +101,13 @@ class BaseTrainer(object):
                 torch.nn.utils.clip_grad_value_(amp.master_params(self.optimizer), self.clip_val)
             else:
                 torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_val)
-
+        elif self.grad_clip_norm:
+            if self.use_amp:
+                torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer), self.clip_val)
+            else:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_val)
+        
+        
         if (index+1)%self.grad_acc_num == 0:
             self.optimizer.step()
             if self.scheduler is not None and self.is_lr_finder == False:
