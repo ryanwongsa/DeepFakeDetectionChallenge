@@ -10,6 +10,11 @@ except:
     pass
 import cProfile
 
+try:
+    import wandb
+except:
+    pass
+
 def make_save_dir(save_dir):
     if save_dir != None:
         if not os.path.exists(save_dir):
@@ -177,7 +182,13 @@ class BaseTrainer(object):
     def lr_finder(self, num_iter, start_lr, end_lr, step_mode="linear", stop_factor=5, log_every=1):
         self.cb.log_every=log_every
         self.is_lr_finder = True
+        self.init_model()
+        self.set_tuning_parameters()
         self.init_optimizer(lr=start_lr)
+        if self.use_amp:
+            self.model, self.optimizer = amp.initialize(self.model, self.optimizer, opt_level="O1")
+        if self.cb.has_wandb:
+            wandb.watch(self.model)
         if step_mode.lower() == "exp":
             lr_schedule = ExponentialLR(self.optimizer, end_lr, num_iter)
         elif step_mode.lower() == "linear":
