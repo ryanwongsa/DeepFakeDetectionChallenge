@@ -94,7 +94,10 @@ class BaseTrainer(object):
         if (index+1)%self.grad_acc_num == 0:
             self.optimizer.step()
             if self.scheduler is not None and self.is_lr_finder == False:
-                self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"))
+                if self.initialise_before_schedule and 0.4>index/len(self.trainloader):
+                    self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"), True)
+                else:
+                    self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"))
             elif self.is_lr_finder:
                 self.scheduler.step()
             self.optimizer.zero_grad()

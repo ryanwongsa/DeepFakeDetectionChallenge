@@ -37,7 +37,7 @@ class GradualWarmupScheduler(_LRScheduler):
         else:
             return [base_lr * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.) for base_lr in self.base_lrs]
 
-    def step_ReduceLROnPlateau(self, metrics, epoch=None):
+    def step_ReduceLROnPlateau(self, metrics, epoch=None, init_c_loss=False):
         if epoch is None:
             epoch = self.last_epoch + 1
         self.last_epoch = epoch if epoch != 0 else 1  # ReduceLROnPlateau is called at the end of epoch, whereas others are called at beginning
@@ -49,9 +49,13 @@ class GradualWarmupScheduler(_LRScheduler):
             if epoch is None:
                 self.after_scheduler.step(metrics, None)
             else:
-                self.after_scheduler.step(metrics, epoch - self.total_epoch)
+                if init_c_loss==True:
+                    print("NOT DOING ANYTHING")
+                    pass
+                else:
+                    self.after_scheduler.step(metrics, epoch - self.total_epoch)
 
-    def step(self, epoch=None, metrics=None):
+    def step(self, epoch=None, metrics=None, init_c_loss=False):
         if type(self.after_scheduler) != ReduceLROnPlateau:
             if self.finished and self.after_scheduler:
                 if epoch is None:
@@ -61,4 +65,4 @@ class GradualWarmupScheduler(_LRScheduler):
             else:
                 return super(GradualWarmupScheduler, self).step(epoch)
         else:
-            self.step_ReduceLROnPlateau(metrics, epoch)
+            self.step_ReduceLROnPlateau(metrics, epoch, init_c_loss)

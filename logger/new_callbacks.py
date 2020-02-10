@@ -12,7 +12,6 @@ class Callbacks(object):
         self.epoch = initial_epoch
         self.logger = MetricLogger()
 
-        self.logger.reset_metrics(["train_mean_loss"])
 
         self.log_every = log_every
         self.has_wandb = False
@@ -32,8 +31,7 @@ class Callbacks(object):
         self.epoch += 1
         
     def on_train_dl_start(self, dict_data={}):
-        self.logger.reset_metrics(["train_epoch_mean_loss"])
-        # self.logger.reset_metrics(["train_mean_loss"])
+        self.logger.reset_metrics(["train_mean_loss"])
     
     def on_train_dl_end(self, dict_data={}):
         print("TRAIN:", self.epoch, self.step, self.logger.get("train_mean_loss"))
@@ -56,7 +54,6 @@ class Callbacks(object):
     def on_batch_train_step_end(self, dict_data={}):
         self.logger.update_metric(dict_data["train_batch_loss"], "train_batch_loss")
         self.logger.increment_metric(dict_data["train_batch_loss"], "train_mean_loss")
-        self.logger.increment_metric(dict_data["train_batch_loss"], "train_epoch_mean_loss")
         dict_data["train_iter_mean_loss"] = self.logger.get("train_mean_loss")
         self.send_log(dict_data)
         self.step += 1

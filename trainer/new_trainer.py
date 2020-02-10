@@ -123,12 +123,14 @@ class Trainer(BaseTrainer):
     
     def init_scheduler(self):
         # self.scheduler_name
+        self.initialise_before_scheduler = False
         if self.scheduler_name == "warmup-with-cosine":
             scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.epochs*len(self.trainloader))
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
         elif self.scheduler_name == "warmup-with-reduce":
             scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=50, cooldown=50, verbose=True)
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_relrplat)
+            self.initialise_before_schedule = True
         else:
             self.scheduler = None
         
