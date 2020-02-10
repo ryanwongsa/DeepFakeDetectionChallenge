@@ -50,7 +50,6 @@ class GradualWarmupScheduler(_LRScheduler):
                 self.after_scheduler.step(metrics, None)
             else:
                 if init_c_loss==True:
-                    print("NOT DOING ANYTHING")
                     pass
                 else:
                     self.after_scheduler.step(metrics, epoch - self.total_epoch)
