@@ -72,6 +72,8 @@ class Trainer(BaseTrainer):
 
         if hparams.project_name is not None:
             self.cb.init_wandb(hparams.project_name, hparams, hparams.run_name)
+            wandb.watch(self.model)
+
         
         if torch.cuda.device_count() > 1 and self.device == 'cuda':
             print("Using Multiple GPUs")
