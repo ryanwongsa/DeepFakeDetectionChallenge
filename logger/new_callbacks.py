@@ -35,6 +35,8 @@ class Callbacks(object):
     
     def on_train_dl_end(self, dict_data={}):
         print("TRAIN:", self.epoch, self.step, self.logger.get("train_mean_loss"))
+        dict_data["train_epoch_mean_loss"] = self.logger.get("train_mean_loss")
+        self.send_log(dict_data)
         
     def on_batch_train_start(self, dict_data={}):
         pass
@@ -54,7 +56,7 @@ class Callbacks(object):
     def on_batch_train_step_end(self, dict_data={}):
         self.logger.update_metric(dict_data["train_batch_loss"], "train_batch_loss")
         self.logger.increment_metric(dict_data["train_batch_loss"], "train_mean_loss")
-        dict_data["train_iter_mean_loss"] = self.logger.get("train_mean_loss")
+        # dict_data["train_iter_mean_loss"] = self.logger.get("train_mean_loss")
         self.send_log(dict_data)
         self.step += 1
         
