@@ -9,6 +9,8 @@ from torchvision import transforms
 from models.efficientnet.net import Net
 from models.vgg_net.sequence_net import SequenceNet
 from models.resnext50_sequence.resnext_sequence_model import SequenceModelResnext
+from models.efficientnet_lstm.model import SequenceModelEfficientNet
+from models.clstm.model import CNNLSTM
 from models.resnet_cnn_lstm.model import ResnetLSTM
 from logger.new_callbacks import Callbacks
 from torch.utils.data import DataLoader
@@ -109,6 +111,12 @@ class Trainer(BaseTrainer):
 
         if self.network_name == 'resnet-lstm':
             self.model = ResnetLSTM()
+        
+        if self.network_name == 'cnn-lstm':
+            self.model = CNNLSTM()
+            
+        if self.network_name == 'sequence-efficient':
+            self.model = SequenceModelEfficientNet(self.criterion_name) # Just using the criterion as the name of the model to load from "D:/NewRepos/solutions/version0-4185.ckpt")
             
         self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=True)
     
@@ -129,7 +137,7 @@ class Trainer(BaseTrainer):
         # self.optimizer_name
         if lr is not None:
             self.lr = lr
-        if self.network_name == 'sequence-resnext':
+        if self.network_name == 'sequence-resnext' or self.network_name == 'sequence-efficient':
             self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr)
         elif self.network_name == 'resnet-lstm':
             crnn_params = list(self.model.cnn_encoder.fc1.parameters()) + list(self.model.cnn_encoder.bn1.parameters()) + \

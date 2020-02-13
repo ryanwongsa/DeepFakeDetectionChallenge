@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torchvision.models as models
 import torch.nn.functional as F
+from models.efficientnet.net import Net
 
 class Identity(nn.Module):
     def __init__(self):
@@ -10,34 +11,34 @@ class Identity(nn.Module):
     def forward(self, x):
         return x
 
-class Resnext50Features(nn.Module):
-    def __init__(self):
-        super(Resnext50Features, self).__init__()
-        resnext50 = models.resnext50_32x4d(pretrained=True)
-        resnext50.fc = Identity()
-        self.resnext50 = resnext50
+class EfficientFeatures(nn.Module):
+    def __init__(self, model_dir):
+        super(EfficientFeatures, self).__init__()
+        self.model = Net('efficientnet-b6',False)
+        checkpoint = torch.load(model_dir)
+        self.model.load_state_dict(checkpoint['model'])
+        self.model._fc = Identity()
         
     def forward(self, x):
         
-        x = self.resnext50(x)
+        x = self.model(x)
         return x
     
 class ResCNNEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, model_dir):
         super(ResCNNEncoder, self).__init__()
         
-        self.net = Resnext50Features()
+        self.net = EfficientFeatures(model_dir)
         
     def forward(self, x):
         x = self.net(x)
-        
         return x
     
 class DecoderRNN(nn.Module):
     def __init__(self):
         super(DecoderRNN, self).__init__()
         self.LSTM = nn.LSTM(
-            input_size=2048,
+            input_size=2304,
             hidden_size=512,
             num_layers=2,
             dropout=0.0,
@@ -61,11 +62,11 @@ class DecoderRNN(nn.Module):
 
         return x[:, -1, :]
     
-class SequenceModelResnext(nn.Module):
-    def __init__(self):
-        super(SequenceModelResnext, self).__init__()
+class SequenceModelEfficientNet(nn.Module):
+    def __init__(self, model_dir):
+        super(SequenceModelEfficientNet, self).__init__()
 
-        self.encoder_model = ResCNNEncoder()
+        self.encoder_model = ResCNNEncoder(model_dir)
         for param in self.encoder_model.parameters():
             param.requires_grad = False
         self.decoder_model = DecoderRNN()
