@@ -132,6 +132,11 @@ class Trainer(BaseTrainer):
             self.clip_val = 0.5
             print("Applying gradient normal clipping:", self.clip_val)
             self.grad_clip_norm = True
+
+        if self.tuning_type=="freeze_bn":
+            self.model.freeze_bn = True
+            self.model.freeze_bn_affine = True
+        
     
     def init_optimizer(self, lr=None):
         # self.optimizer_name
@@ -151,7 +156,7 @@ class Trainer(BaseTrainer):
         # self.scheduler_name
         self.initialise_before_scheduler = False
         if self.scheduler_name == "warmup-with-cosine":
-            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.epochs*len(self.trainloader))
+            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, 4*len(self.trainloader))
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
         elif self.scheduler_name == "warmup-with-reduce":
             scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=100, cooldown=100, verbose=True)
