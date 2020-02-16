@@ -1,5 +1,6 @@
 from albumentations import JpegCompression, OneOf, Compose, HorizontalFlip
 from albumentations.augmentations.transforms import Resize, Downscale
+import albumentations as A
 
 def base_transform(height, width, mappings, p=2/3):
     return Compose([
