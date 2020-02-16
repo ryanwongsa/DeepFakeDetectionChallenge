@@ -24,6 +24,7 @@ def more_transform(height, width, mappings, p=2/3):
             Resize(height//4,width//4, interpolation=1, p=0.5)
         ], p=1.0),
         HorizontalFlip(p=0.5),
+        A.augmentations.transforms.GaussNoise(p=0.2),
         A.RandomBrightnessContrast(p=0.2),    
         A.RandomGamma(p=0.2),    
         A.CLAHE(p=0.2),
