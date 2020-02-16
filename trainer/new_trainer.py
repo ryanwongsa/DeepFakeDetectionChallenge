@@ -158,7 +158,7 @@ class Trainer(BaseTrainer):
     
     def init_scheduler(self):
         # self.scheduler_name
-        self.initialise_before_scheduler = False
+        self.initialise_before_schedule = False
         if self.scheduler_name == "warmup-with-cosine":
             scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, 4*len(self.trainloader))
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
