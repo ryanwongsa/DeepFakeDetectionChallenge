@@ -15,7 +15,7 @@ from models.resnet_cnn_lstm.model import ResnetLSTM
 from logger.new_callbacks import Callbacks
 from torch.utils.data import DataLoader
 
-from augmentations.augment import base_aug
+from augmentations.augment import base_aug, more_aug
 
 from utils.schedulers import GradualWarmupScheduler
 
@@ -68,7 +68,11 @@ class Trainer(BaseTrainer):
         
         self.cb = Callbacks(log_every=1, save_dir=self.save_dir)
         
-        self.init_train_dataloader(base_aug, length=train_length)
+        if self.load_model_only == False:
+            self.init_train_dataloader(base_aug, length=train_length)
+        else:
+            print("APPLYING MORE AUGMENTATION")
+            self.init_train_dataloader(more_aug, length=train_length)
         self.init_valid_dataloader(length = valid_length)
         
         self.init_criterion()
