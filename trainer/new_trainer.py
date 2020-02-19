@@ -166,6 +166,8 @@ class Trainer(BaseTrainer):
             scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=100, cooldown=100, verbose=True)
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_relrplat)
             self.initialise_before_schedule = True
+        elif self.scheduler_name == "warmup":
+            self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=None)
         else:
             self.scheduler = None
         
