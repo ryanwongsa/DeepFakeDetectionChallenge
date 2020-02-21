@@ -6,4 +6,5 @@ My solution to the Kaggle Deepfake Detection Challenge.
 
 - [facenet-pytorch](https://github.com/timesler/facenet-pytorch)
 - [efficientnet-pytorch](https://github.com/lukemelas/EfficientNet-PyTorch)
-- [video-classification](https://github.com/HHTseng/video-classification/tree/master)
+- [video-classification](https://github.com/HHTseng/video-classification)
+- [pytorch-gradual-warmup-lr](https://github.com/ildoonet/pytorch-gradual-warmup-lr)

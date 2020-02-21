@@ -140,7 +140,8 @@ class MTCNN(nn.Module):
     def __init__(
         self, thresholds=[0.6, 0.7, 0.7], factor=0.709,
         select_largest=True, keep_top_k=1, device=None, threshold_prob = 0.9,
-        pnet_pth='pretrained_models/pnet.pt', rnet_pth='pretrained_models/rnet.pt', onet_pth='pretrained_models/onet.pt'
+        pnet_pth='pretrained_models/pnet.pt', rnet_pth='pretrained_models/rnet.pt', onet_pth='pretrained_models/onet.pt',
+        is_half=True
     ):
         super().__init__()
 
@@ -153,72 +154,49 @@ class MTCNN(nn.Module):
         self.rnet = RNet(pretrained_path=rnet_pth)
         self.onet = ONet(pretrained_path=onet_pth)
 
-        self.device = torch.device('cpu')
-        if device is not None:
-            self.device = device
-            self.to(device)
+        self.device = device
+        self.is_half = is_half
 
 
     def forward(self, img, min_face_size=20, return_prob=False):
         batch_boxes, batch_probs = self.detect(img, min_face_size)
         return batch_boxes, batch_probs
-#         faces, probs, center_boxes = [], [], []
-#         for im, box_im, prob_im in zip(img, batch_boxes, batch_probs):
-#             if box_im is None:
-#                 faces.append([None])
-#                 center_boxes.append([None])
-#                 probs.append([None])
-#                 continue
-            
-#             faces_im, center_boxes_im = [], []
-#             for i, box in enumerate(box_im):
-#                 margin = 10
-#                 face, center_box = extract_face(im, box, margin, device=self.device)
-                
-#                 faces_im.append(face)
-#                 center_boxes_im.append(center_box)
-            
-#             faces.append(faces_im)
-#             probs.append(prob_im)
-#             center_boxes.append(center_boxes_im)
-
-#         if return_prob:
-#             return faces, center_boxes, probs 
-#         else:
-#             return faces
         
 
-    def detect(self, img, min_face_size=10, landmarks=False):
+    def detect(self, img, min_face_size=10):
 
         with torch.no_grad():
-            batch_boxes, batch_points = detect_face(
+            batch_boxes = detect_face(
                 img, min_face_size,
                 self.pnet, self.rnet, self.onet,
                 self.thresholds, self.factor,
-                self.device
+                self.device,
+                self.is_half
             )
 
-        boxes, probs, points = [], [], []
-        for box, point in zip(batch_boxes, batch_points):
-            box = box[box[:,4]>self.threshold_prob]
+        boxes, probs = [], []
+        for box in batch_boxes:
+            box_new = box[box[:,4]>self.threshold_prob]
+            lowered_threshold = False
+            if len(box_new)==0:
+                box_new = box[box[:,4]>0.7]
+                lowered_threshold = True
+            box = box_new    
             if len(box) == 0:
                 boxes.append(None)
                 probs.append([None])
-                points.append([None])
             else:
-                _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]), descending=True)
                 
-                keep = min(len(box_order), self.keep_top_k)
+                _, box_order = torch.sort((box[:, 2] - box[:, 0]) * (box[:, 3] - box[:, 1]), descending=True)
+                if lowered_threshold == False:
+                    keep = min(len(box_order), self.keep_top_k)
+                else:
+                    keep = min(len(box_order), 1)
                 box_order = box_order[0:keep]
                 
                 box_i = box[box_order][:,0:4]
                 prob_i = box[box_order][:, 4]
-                point_i = point[box_order]
                 boxes.append(box_i)
                 probs.append(prob_i)
-                points.append(point_i)
-                
-        if landmarks:
-            return boxes, probs, points
 
         return boxes, probs
