@@ -125,7 +125,7 @@ class AudioTrainer(BaseTrainer):
         # self.scheduler_name
         self.initialise_before_schedule = False
         if self.scheduler_name == "warmup-with-cosine":
-            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, 4*len(self.trainloader))
+            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, 10*len(self.trainloader))
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
         elif self.scheduler_name == "warmup-with-reduce":
             scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=100, cooldown=100, verbose=True)
