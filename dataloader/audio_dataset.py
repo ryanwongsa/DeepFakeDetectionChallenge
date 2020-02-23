@@ -70,7 +70,7 @@ class AudioDataset(Dataset):
                                          sr=sr,
                                          n_fft=self.fft_multiplier*round(num_seconds),
                                          hop_length=sr//100,
-                                         n_mels=128)
+                                         n_mels=64)
         spectrum = np.log(spectrum + 1e-9)
         s_mean, s_std = spectrum.mean(), spectrum.std()
         spectrum = (spectrum-s_mean) / s_std
