@@ -74,6 +74,7 @@ class AudioDataset(Dataset):
         spectrum = np.log(spectrum + 1e-9)
         s_mean, s_std = spectrum.mean(), spectrum.std()
         spectrum = (spectrum-s_mean) / s_std
+        
         spectrum = torch.from_numpy(spectrum)
 #         wave, sr = torchaudio.load(sound_filename)
 #         num_seconds = wave.shape[1]/sr
@@ -82,6 +83,11 @@ class AudioDataset(Dataset):
 #         s_mean, s_std = spectrum.mean(), spectrum.std()
 #         spectrum = (spectrum-s_mean) / s_std
         
+        if spectrum.shape[1]< self.sequence_length:
+            print("This sound file is short:", sound_filename)
+            repeats = int(np.ceil(self.sequence_length/spectrum.shape[1]))
+            spectrum = spectrum.repeat(1,repeats)
+    
         if self.transform is not None:
             spectrum = self.transform(spectrum)
         num_ff = self.sequence_length
