@@ -1,6 +1,7 @@
 import torch
 from pathlib import Path
-import torchaudio
+# import torchaudio
+import librosa
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import json
@@ -62,13 +63,24 @@ class AudioDataset(Dataset):
         video_metadata = self.metadata[source_filename]
         sound_filename = f"{video_filename.stem}.wav"
         sound_filename = self.root_dir/sound_filename
-
-        wave, sr = torchaudio.load(sound_filename)
-        num_seconds = wave.shape[1]/sr
-        spectrum = torchaudio.transforms.MelSpectrogram(sample_rate=sr, n_fft=self.fft_multiplier*round(num_seconds))(wave.mean(axis=0))
-        spectrum = (spectrum + 1e-9).log()
+        
+        wave, sr = librosa.load(sound_filename, sr=8000, mono=True)
+        num_seconds = wave.shape[0]/sr
+        spectrum = librosa.feature.melspectrogram(wave,
+                                         sr=sr,
+                                         n_fft=self.fft_multiplier*round(num_seconds),
+                                         hop_length=sr//100,
+                                         n_mels=128)
+        spectrum = np.log(spectrum + 1e-9)
         s_mean, s_std = spectrum.mean(), spectrum.std()
         spectrum = (spectrum-s_mean) / s_std
+        spectrum = torch.from_numpy(spectrum)
+#         wave, sr = torchaudio.load(sound_filename)
+#         num_seconds = wave.shape[1]/sr
+#         spectrum = torchaudio.transforms.MelSpectrogram(sample_rate=sr, n_fft=self.fft_multiplier*round(num_seconds))(wave.mean(axis=0))
+#         spectrum = (spectrum + 1e-9).log()
+#         s_mean, s_std = spectrum.mean(), spectrum.std()
+#         spectrum = (spectrum-s_mean) / s_std
         
         if self.transform is not None:
             spectrum = self.transform(spectrum)

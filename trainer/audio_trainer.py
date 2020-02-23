@@ -51,7 +51,7 @@ class AudioTrainer(BaseTrainer):
         self.load_model_only = hparams.load_model_only
         self.tuning_type = hparams.tuning_type
         
-        self.cb = Callbacks(log_every=1, save_dir=self.save_dir)
+        self.cb = Callbacks(log_every=10, save_dir=self.save_dir)
         
         self.valid_length = 5
         
