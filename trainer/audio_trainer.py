@@ -1,16 +1,18 @@
 import torch
 torch.backends.cudnn.benchmark = True
 
-from trainer.base_trainer import BaseTrainer
+from trainer.base_audio_trainer import BaseAudioTrainer
 
 from logger.new_callbacks import Callbacks
 from torch.utils.data import DataLoader
 from dataloader.audio_dataset import AudioDataset
 
-from augmentations.audio_aug import audio_aug, more_audio_aug
-from models.efficientnet.net import Net
-
-from utils.schedulers import GradualWarmupScheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from models.audio_models.model_dcase import ConvNet
+from models.audio_models.model_m1 import Classifier_M2, Classifier_M3
+from models.audio_models.model_m0 import Classifier
+from utils.mixup import *
+import numpy as np
 
 import cProfile
 try:
@@ -22,12 +24,11 @@ try:
 except:
     pass
 
-class AudioTrainer(BaseTrainer):
+class AudioTrainer(BaseAudioTrainer):
     def __init__(self, hparams, train_length=None, valid_length=None):
-        self.is_lr_finder = False
         
-        self.sequence_length = hparams.sequence_length
-        self.num_sequences = hparams.num_sequences
+        self.mixup = hparams.mixup
+        self.cutmix = hparams.cutmix
         self.batch_size = hparams.batch_size
         self.num_workers = hparams.num_workers
         self.train_dir = hparams.train_dir
@@ -53,14 +54,7 @@ class AudioTrainer(BaseTrainer):
         self.pos_weight_factor = hparams.pos_weight_factor
         self.cb = Callbacks(log_every=10, save_dir=self.save_dir)
         
-        self.valid_length = 5
-        
-        if self.load_model_only == False:
-            self.init_train_dataloader(audio_aug, length=train_length)
-        else:
-            print("APPLYING MORE AUGMENTATION")
-            self.init_train_dataloader(more_audio_aug, length=train_length)
-
+        self.init_train_dataloader(length=train_length)
         self.init_valid_dataloader(length = valid_length)
         
         self.init_criterion()
@@ -87,51 +81,38 @@ class AudioTrainer(BaseTrainer):
 
     def init_criterion(self):
         # self.criterion_name
-        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.pos_weight_factor)) # torch.nn.BCELoss()
-        self.log_loss_criterion = torch.nn.BCELoss() # torch.nn.BCELoss()
+        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.pos_weight_factor))
+        self.log_loss_criterion = torch.nn.BCELoss() 
         self.valid_criterion = torch.nn.BCELoss()
         
     def init_model(self):
         # self.network_name
-        if "efficientnet" in self.network_name:
-            self.model = Net(self.network_name)
+        
+        model_dict = {
+            "m0": Classifier,
+            "m2": Classifier_M2,
+            "m3": Classifier_M3,
+            "dcase": ConvNet,
+        }
+        self.model = model_dict[self.network_name](num_classes=1)
     
     def set_tuning_parameters(self):
         # self.tuning_type
-        self.grad_clip = False
-        self.grad_clip_norm = False
-        if self.tuning_type=="grad_clip":
-            self.clip_val = 2
-            print("Applying gradient clipping:", self.clip_val)
-            self.grad_clip = True
-        if self.tuning_type=="grad_clip_norm":
-            self.clip_val = 0.5
-            print("Applying gradient normal clipping:", self.clip_val)
-            self.grad_clip_norm = True
-
         if self.tuning_type=="freeze_bn":
             self.model.freeze_bn = True
             self.model.freeze_bn_affine = True
-        
-        
     
     def init_optimizer(self, lr=None):
         # self.optimizer_name
         if lr is not None:
             self.lr = lr
         
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, amsgrad=False)
     
     def init_scheduler(self):
         # self.scheduler_name
-        self.initialise_before_schedule = False
-        if self.scheduler_name == "warmup-with-cosine":
-            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, 10*len(self.trainloader))
-            self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
-        elif self.scheduler_name == "warmup-with-reduce":
-            scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=100, cooldown=100, verbose=True)
-            self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_relrplat)
-            self.initialise_before_schedule = True
+        if self.scheduler_name == "cosine":
+            self.scheduler = CosineAnnealingLR(self.optimizer, T_max=10, eta_min=1e-5)
         else:
             self.scheduler = None
         
@@ -140,29 +121,43 @@ class AudioTrainer(BaseTrainer):
     '''
     def batch_process(self, batch, index=None, isTraining=True):
         self.cb.on_batch_process_start()
-        source_filenames, audios, labels, video_original_filenames = batch
-        audios = [torch.stack((a,)*3, axis=-1).permute(0,3,1,2).to(self.device) for a in audios]
+        source_filenames, x_batch, y_batch, video_original_filenames = batch
+        y_batch = y_batch.float()
         if isTraining:
-            audios = torch.stack(audios,0)
-            labels = labels.unsqueeze(1).repeat(1, self.num_sequences).float()
-            b, s, h, w, c = audios.shape
-            audios = audios.view(b* s, h, w, c)
-            labels = labels.view(labels.shape[0]*labels.shape[1]).unsqueeze(1).float().to(self.device)
+            if self.mixup or self.cutmix:
+                if self.mixup and (not self.cutmix):
+                    x_batch, y_batch_a, y_batch_b, lam = mixup_data(x_batch, y_batch)
+                elif self.cutmix and (not self.mixup):
+                    x_batch, y_batch_a, y_batch_b, lam = cutmix_data(x_batch, y_batch, device=self.device)
+                else:
+                    x_batch, y_batch_a, y_batch_b, lam = cutmix_data(x_batch, y_batch, device=self.device) if np.random.rand() > 0.5 else mixup_data(x_batch, y_batch, device=self.device)
+                y_batch_b = y_batch_b.unsqueeze(1)
+                y_batch_a = y_batch_a.unsqueeze(1)
+                self.cb.on_batch_process_end()
+                return x_batch, y_batch_a, y_batch_b, lam
+            else:
+                y_batch = y_batch.unsqueeze(1)
+                self.cb.on_batch_process_end()
+                return x_batch, y_batch
         else:
-            labels = [x.unsqueeze(1).to(self.device).float() for x in labels.unsqueeze(1).repeat(1, audios[0].shape[0])]
-        self.cb.on_batch_process_end()
-        return audios, labels
+            y_batch = y_batch.unsqueeze(1)
+            self.cb.on_batch_process_end()
+            return x_batch, y_batch
 
     '''
     1.1.2. batch train
     '''
     def batch_train_step(self, batch, index):
         self.cb.on_batch_train_step_start()
+        if self.mixup or self.cutmix:
+            x_batch, y_batch_a, y_batch_b, lam = batch
+            preds = self.model(x_batch.to(self.device))
+            loss = mixup_criterion(self.criterion, preds, y_batch_a.to(self.device), y_batch_b.to(self.device), lam)
+        else:
+            x_batch, y_batch = batch
+            preds = self.model(x_batch.to(self.device))
+            loss = mixup_criterion(preds, y_batch.to(self.device))
         
-        batch_sequences, batch_video_labels = batch
-        batch_predicted = self.model(batch_sequences)
-        loss = self.criterion(batch_predicted, batch_video_labels)
-            
         dict_metrics = {"train_batch_loss":loss.item()}
         if self.scheduler is not None:
             dict_metrics["lr"] = self.optimizer.param_groups[0]['lr']
@@ -176,27 +171,29 @@ class AudioTrainer(BaseTrainer):
     def batch_valid_step(self, batch, index):
         self.cb.on_batch_valid_step_start()
         with torch.no_grad():
-            for idx, (sequences, labels) in enumerate(zip(*batch)):
-                predicted = self.model(sequences)
-                loss_original = self.criterion(predicted, labels)
+            for idx, (x_batch, y_batch) in enumerate(zip(*batch)):
+                x_batch = x_batch.unsqueeze(0)
+                y_batch = y_batch.unsqueeze(0)
+                predicted = self.model(x_batch.to(self.device))
+                loss_original = self.criterion(predicted, y_batch.to(self.device))
                 predicted2 = torch.sigmoid(predicted)
                 predicted2[predicted2<0.5] = 0.5
-                loss = self.valid_criterion(predicted2, labels)
+                loss = self.valid_criterion(predicted2, y_batch.to(self.device))
                 predicted3 = torch.sigmoid(predicted).mean(axis=0)
                 predicted3[predicted3<0.5] = 0.5
-                log_loss = self.log_loss_criterion(predicted3, labels[0])
+                log_loss = self.log_loss_criterion(predicted3, y_batch[0].to(self.device))
                 
-                self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original})
+                self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
         
-    def init_train_dataloader(self, aug=None, length = None):
-        train_dataset = AudioDataset(self.train_dir,self.train_meta_file, transform=aug, isBalanced=True, num_sequences=self.num_sequences, fft_multiplier=20, sequence_length=self.sequence_length, isValid=False)
+    def init_train_dataloader(self, length = None):
+        train_dataset = AudioDataset(self.train_dir, self.train_meta_file, spec_aug=False, isBalanced=True, isValid=False)
         if length is not None:
             train_dataset.length = length
-        self.trainloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers= self.num_workers, collate_fn= train_dataset.collate_fn, pin_memory= True,  drop_last = True,worker_init_fn=train_dataset.init_workers_fn)
+        self.trainloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers= self.num_workers, pin_memory= True,  drop_last = True, worker_init_fn=train_dataset.init_workers_fn)
         
     def init_valid_dataloader(self, length = None):
-        valid_dataset = AudioDataset(self.valid_dir,self.valid_meta_file, transform=None, isBalanced=False, num_sequences=self.valid_length, fft_multiplier=20, sequence_length=self.sequence_length, isValid=True)
+        valid_dataset = AudioDataset(self.valid_dir, self.valid_meta_file, spec_aug=False, isBalanced=False, isValid=True)
         if length is not None:
             valid_dataset.length = length
-        self.validloader = DataLoader(valid_dataset, batch_size= 128, shuffle= False, num_workers= self.num_workers, collate_fn= valid_dataset.collate_fn, pin_memory= True, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
+        self.validloader = DataLoader(valid_dataset, batch_size=128, shuffle=False, num_workers= self.num_workers,pin_memory= True, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
     

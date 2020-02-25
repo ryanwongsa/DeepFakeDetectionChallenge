@@ -40,7 +40,6 @@ class AudioDataset(Dataset):
                 transforms.ToTensor(),
             ]),
             'test': transforms.Compose([
-#                 transforms.RandomHorizontalFlip(0.5),
                 transforms.ToTensor(),
             ]),
         }
@@ -56,9 +55,9 @@ class AudioDataset(Dataset):
         new_seed = int.from_bytes(os.urandom(4), byteorder='little')
         np.random.seed(new_seed)
 
-    def collate_fn(self, samples):
-        source_filenames, audios, labels, video_original_filenames = zip(*samples)
-        return source_filenames, audios, torch.tensor(labels), video_original_filenames
+#     def collate_fn(self, samples):
+#         source_filenames, audios, labels, video_original_filenames = zip(*samples)
+#         return source_filenames, audios, torch.tensor(labels), video_original_filenames
 
     def __len__(self):
         return self.length
@@ -89,7 +88,10 @@ class AudioDataset(Dataset):
         image = mono_to_color(image)
         
         time_dim, base_dim = image.shape[1], image.shape[0]
-        crop = np.random.randint(0, time_dim - base_dim)
+        if self.isValid:
+            crop = time_dim//2 - base_dim//2
+        else:
+            crop = np.random.randint(0, time_dim - base_dim)
         image = image[:, crop:crop + base_dim, ...]
         if self.spec_aug:
             freq_mask_begin = int(np.random.uniform(0, 1 - self.freq_mask) * base_dim)

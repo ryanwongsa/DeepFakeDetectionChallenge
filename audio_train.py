@@ -7,10 +7,11 @@ def main(hparams):
     
 if __name__ == '__main__':
     parser = ArgumentParser(parents=[])
-    parser.add_argument('--sequence_length', default=1, type=int)
-    parser.add_argument('--num_sequences', default=10, type=int)
+    parser.add_argument('--mixup', dest='mixup', action='store_true')
+    parser.add_argument('--cutmix', dest='cutmix', action='store_true')
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--num_workers', default=0, type=int)
+    parser.add_argument('--pos_weight_factor', type=float, default=0.5) 
 
     parser.add_argument('--network_name', type=str)
     parser.add_argument('--epochs', default=3, type=int)
