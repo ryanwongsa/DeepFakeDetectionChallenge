@@ -50,7 +50,7 @@ class AudioTrainer(BaseTrainer):
         self.device = hparams.device
         self.load_model_only = hparams.load_model_only
         self.tuning_type = hparams.tuning_type
-        
+        self.pos_weight_factor = hparams.pos_weight_factor
         self.cb = Callbacks(log_every=10, save_dir=self.save_dir)
         
         self.valid_length = 5
@@ -87,9 +87,10 @@ class AudioTrainer(BaseTrainer):
 
     def init_criterion(self):
         # self.criterion_name
-        self.criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
-        self.log_loss_criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
-    
+        self.criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.pos_weight_factor)) # torch.nn.BCELoss()
+        self.log_loss_criterion = torch.nn.BCELoss() # torch.nn.BCELoss()
+        self.valid_criterion = torch.nn.BCELoss()
+        
     def init_model(self):
         # self.network_name
         if "efficientnet" in self.network_name:
@@ -177,10 +178,15 @@ class AudioTrainer(BaseTrainer):
         with torch.no_grad():
             for idx, (sequences, labels) in enumerate(zip(*batch)):
                 predicted = self.model(sequences)
-                loss = self.criterion(predicted, labels)
-                log_loss = self.log_loss_criterion(predicted.mean(axis=0), labels[0])
+                loss_original = self.criterion(predicted, labels)
+                predicted2 = torch.sigmoid(predicted)
+                predicted2[predicted2<0.5] = 0.5
+                loss = self.valid_criterion(predicted2, labels)
+                predicted3 = torch.sigmoid(predicted).mean(axis=0)
+                predicted3[predicted3<0.5] = 0.5
+                log_loss = self.log_loss_criterion(predicted3, labels[0])
                 
-                self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item()})
+                self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original})
         
     def init_train_dataloader(self, aug=None, length = None):
         train_dataset = AudioDataset(self.train_dir,self.train_meta_file, transform=aug, isBalanced=True, num_sequences=self.num_sequences, fft_multiplier=20, sequence_length=self.sequence_length, isValid=False)
@@ -192,5 +198,5 @@ class AudioTrainer(BaseTrainer):
         valid_dataset = AudioDataset(self.valid_dir,self.valid_meta_file, transform=None, isBalanced=False, num_sequences=self.valid_length, fft_multiplier=20, sequence_length=self.sequence_length, isValid=True)
         if length is not None:
             valid_dataset.length = length
-        self.validloader = DataLoader(valid_dataset, batch_size= self.batch_size, shuffle= False, num_workers= self.num_workers, collate_fn= valid_dataset.collate_fn, pin_memory= True, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
+        self.validloader = DataLoader(valid_dataset, batch_size= 128, shuffle= False, num_workers= self.num_workers, collate_fn= valid_dataset.collate_fn, pin_memory= True, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
     

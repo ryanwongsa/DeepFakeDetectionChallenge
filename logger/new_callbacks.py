@@ -62,13 +62,14 @@ class Callbacks(object):
         
         
     def on_valid_dl_start(self, dict_data={}):
-        self.logger.reset_metrics(["valid_mean_loss", "valid_log_loss"])
+        self.logger.reset_metrics(["valid_mean_loss", "valid_log_loss", "valid_original_loss"])
     
     def on_valid_dl_end(self, dict_data={}):
         print("VALID:", self.epoch, self.step, self.logger.get("valid_mean_loss"), self.logger.get("valid_log_loss"))
         self.send_log({
             "valid_mean_loss": self.logger.get("valid_mean_loss"), 
-            "valid_log_loss": self.logger.get("valid_log_loss")
+            "valid_log_loss": self.logger.get("valid_log_loss"),
+            "valid_orig_loss": self.logger.get("valid_original_loss")
         }, True)
         
     def on_batch_valid_start(self, dict_data={}):
@@ -84,6 +85,7 @@ class Callbacks(object):
         self.logger.update_metric(dict_data["valid_batch_loss"], "valid_batch_loss")
         self.logger.increment_metric(dict_data["valid_batch_loss"], "valid_mean_loss")
         self.logger.increment_metric(dict_data["valid_log_loss"], "valid_log_loss")
+        self.logger.increment_metric(dict_data["valid_original_loss"], "valid_original_loss")
     
     def send_log(self, dict_logs={}, sendAlways=False):
         if dict_logs != {}:

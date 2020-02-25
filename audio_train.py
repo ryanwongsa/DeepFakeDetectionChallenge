@@ -19,7 +19,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--grad_acc_num', default=1, type=int)
     parser.add_argument('--lr', type=float, default=0.0003) 
-
+    parser.add_argument('--pos_weight_factor', type=float, default=1.0) 
+    
     parser.add_argument('--train_dir', type=str)
     parser.add_argument('--train_meta_file', type=str)
     parser.add_argument('--valid_dir', type=str)
