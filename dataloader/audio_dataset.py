@@ -55,9 +55,9 @@ class AudioDataset(Dataset):
         new_seed = int.from_bytes(os.urandom(4), byteorder='little')
         np.random.seed(new_seed)
 
-#     def collate_fn(self, samples):
-#         source_filenames, audios, labels, video_original_filenames = zip(*samples)
-#         return source_filenames, audios, torch.tensor(labels), video_original_filenames
+    def collate_fn(self, samples):
+        source_filenames, audios, labels, video_original_filenames = zip(*samples)
+        return source_filenames, torch.stack(audios,0), torch.stack(labels,0), video_original_filenames
 
     def __len__(self):
         return self.length
@@ -105,6 +105,6 @@ class AudioDataset(Dataset):
         else:
             label = 0
 
-        video_original_filename = video_metadata["original"] if "original" in video_metadata else None
+        video_original_filename = video_metadata["original"] if "original" in video_metadata else ""
              
-        return source_filename, image, label, video_original_filename
+        return source_filename, image, torch.tensor(label), video_original_filename

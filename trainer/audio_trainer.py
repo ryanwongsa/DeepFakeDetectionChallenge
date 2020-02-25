@@ -189,11 +189,11 @@ class AudioTrainer(BaseAudioTrainer):
         train_dataset = AudioDataset(self.train_dir, self.train_meta_file, spec_aug=False, isBalanced=True, isValid=False)
         if length is not None:
             train_dataset.length = length
-        self.trainloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers= self.num_workers, pin_memory= True,  drop_last = True, worker_init_fn=train_dataset.init_workers_fn)
+        self.trainloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers= self.num_workers, collate_fn= train_dataset.collate_fn, pin_memory= True,  drop_last = True, worker_init_fn=train_dataset.init_workers_fn)
         
     def init_valid_dataloader(self, length = None):
         valid_dataset = AudioDataset(self.valid_dir, self.valid_meta_file, spec_aug=False, isBalanced=False, isValid=True)
         if length is not None:
             valid_dataset.length = length
-        self.validloader = DataLoader(valid_dataset, batch_size=128, shuffle=False, num_workers= self.num_workers,pin_memory= True, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
+        self.validloader = DataLoader(valid_dataset, batch_size=128, shuffle=False, num_workers= self.num_workers,pin_memory= True, collate_fn= valid_dataset.collate_fn, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
     
