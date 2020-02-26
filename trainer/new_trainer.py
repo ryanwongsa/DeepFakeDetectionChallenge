@@ -104,7 +104,10 @@ class Trainer(BaseTrainer):
     
     def init_model(self):
         # self.network_name
-        if "efficientnet" in self.network_name:
+        if self.network_name == 'sequence-efficientnet-b7':
+            self.model = SequenceModelEfficientNet(self.network_name.replace('sequence-',''), self.criterion_name)
+       
+        if "efficientnet" in self.network_name and "sequence" not in self.network_name:
             self.model = Net(self.network_name)
             
         if self.network_name == 'sequence-vgg':
@@ -119,8 +122,7 @@ class Trainer(BaseTrainer):
         if self.network_name == 'cnn-lstm':
             self.model = CNNLSTM()
             
-        if self.network_name == 'sequence-efficientnet-b7':
-            self.model = SequenceModelEfficientNet(self.network_name.replace('sequence-',''), self.criterion_name) # Just using the criterion as the name of the model to load from "D:/NewRepos/solutions/version0-4185.ckpt")
+        
             
         self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=True)
     
@@ -146,7 +148,7 @@ class Trainer(BaseTrainer):
         # self.optimizer_name
         if lr is not None:
             self.lr = lr
-        if self.network_name == 'sequence-resnext' or self.network_name == 'sequence-efficient':
+        if self.network_name == 'sequence-resnext' or 'sequence-efficient' in self.network_name:
             self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr)
         elif self.network_name == 'resnet-lstm':
             crnn_params = list(self.model.cnn_encoder.fc1.parameters()) + list(self.model.cnn_encoder.bn1.parameters()) + \

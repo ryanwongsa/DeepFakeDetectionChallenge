@@ -12,7 +12,7 @@ class Identity(nn.Module):
         return x
 
 class EfficientFeatures(nn.Module):
-    def __init__(self, model_name='efficientnet-b7', model_dir):
+    def __init__(self, model_name, model_dir):
         super(EfficientFeatures, self).__init__()
         self.model = Net(model_name,False)
         checkpoint = torch.load(model_dir)
@@ -35,10 +35,11 @@ class ResCNNEncoder(nn.Module):
         return x
     
 class DecoderRNN(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size):
         super(DecoderRNN, self).__init__()
+        
         self.LSTM = nn.LSTM(
-            input_size=2304,
+            input_size=input_size,
             hidden_size=512,
             num_layers=2,
             dropout=0.3,
@@ -70,7 +71,11 @@ class SequenceModelEfficientNet(nn.Module):
         self.encoder_model = ResCNNEncoder(model_name, model_dir)
         for param in self.encoder_model.parameters():
             param.requires_grad = False
-        self.decoder_model = DecoderRNN()
+        if "b7" in model_name:
+            input_size = 2560
+        else:
+            input_size = 2304
+        self.decoder_model = DecoderRNN(input_size)
 
     def forward(self, x):
         batch_size, timesteps, C, H, W = x.size()
