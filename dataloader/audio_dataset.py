@@ -83,7 +83,6 @@ class AudioDataset(Dataset):
         sound_filename = f"{video_filename.stem}.wav"
         sound_filename = self.root_dir/sound_filename
         
-        wave, sr = librosa.load(sound_filename, sr=8000, mono=True)
         image = read_as_melspectrogram(self.conf, sound_filename, trim_long_data=False)
         image = mono_to_color(image)
         
