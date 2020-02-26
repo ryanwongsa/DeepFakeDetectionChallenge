@@ -12,9 +12,9 @@ class Identity(nn.Module):
         return x
 
 class EfficientFeatures(nn.Module):
-    def __init__(self, model_dir):
+    def __init__(self, model_name='efficientnet-b7', model_dir):
         super(EfficientFeatures, self).__init__()
-        self.model = Net('efficientnet-b6',False)
+        self.model = Net(model_name,False)
         checkpoint = torch.load(model_dir)
         self.model.load_state_dict(checkpoint['model'])
         self.model._fc = Identity()
@@ -25,10 +25,10 @@ class EfficientFeatures(nn.Module):
         return x
     
 class ResCNNEncoder(nn.Module):
-    def __init__(self, model_dir):
+    def __init__(self, model_name, model_dir):
         super(ResCNNEncoder, self).__init__()
         
-        self.net = EfficientFeatures(model_dir)
+        self.net = EfficientFeatures(model_name, model_dir)
         
     def forward(self, x):
         x = self.net(x)
@@ -41,7 +41,7 @@ class DecoderRNN(nn.Module):
             input_size=2304,
             hidden_size=512,
             num_layers=2,
-            dropout=0.0,
+            dropout=0.3,
             batch_first=True,       # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
         )
 
@@ -63,10 +63,10 @@ class DecoderRNN(nn.Module):
         return x[:, -1, :]
     
 class SequenceModelEfficientNet(nn.Module):
-    def __init__(self, model_dir):
+    def __init__(self, model_name, model_dir):
         super(SequenceModelEfficientNet, self).__init__()
 
-        self.encoder_model = ResCNNEncoder(model_dir)
+        self.encoder_model = ResCNNEncoder(model_name, model_dir)
         for param in self.encoder_model.parameters():
             param.requires_grad = False
         self.decoder_model = DecoderRNN()
@@ -77,5 +77,6 @@ class SequenceModelEfficientNet(nn.Module):
             x = x.view(batch_size * timesteps, C, H, W)
             x = self.encoder_model(x)
         x = x.view(batch_size, timesteps, -1)
+        x = F.dropout(x, p=0.4, training=self.training)
         x = self.decoder_model(x)
         return x
