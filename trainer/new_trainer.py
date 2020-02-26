@@ -119,8 +119,8 @@ class Trainer(BaseTrainer):
         if self.network_name == 'cnn-lstm':
             self.model = CNNLSTM()
             
-        if self.network_name == 'sequence-efficient':
-            self.model = SequenceModelEfficientNet(self.criterion_name) # Just using the criterion as the name of the model to load from "D:/NewRepos/solutions/version0-4185.ckpt")
+        if self.network_name == 'sequence-efficientnet-b7':
+            self.model = SequenceModelEfficientNet(self.network_name.replace('sequence-',''), self.criterion_name) # Just using the criterion as the name of the model to load from "D:/NewRepos/solutions/version0-4185.ckpt")
             
         self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=True)
     
