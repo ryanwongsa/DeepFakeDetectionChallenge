@@ -43,10 +43,11 @@ class DecoderRNN(nn.Module):
             num_layers=2,
             dropout=0.0,
             batch_first=True,       # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
+            bidirectional=True
         )
 
 #         self.fc1 = nn.Linear(1024, 512)
-        self.fc1 = nn.Linear(512, 1)
+        self.fc1 = nn.Linear(512*2, 1)
 
     def forward(self, x):
         
