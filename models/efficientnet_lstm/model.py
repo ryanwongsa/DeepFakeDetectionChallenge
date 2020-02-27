@@ -12,11 +12,12 @@ class Identity(nn.Module):
         return x
 
 class EfficientFeatures(nn.Module):
-    def __init__(self, model_name, model_dir):
+    def __init__(self, model_name, model_dir=None):
         super(EfficientFeatures, self).__init__()
         self.model = Net(model_name,False)
-        checkpoint = torch.load(model_dir)
-        self.model.load_state_dict(checkpoint['model'])
+        if model_dir is not None:
+            checkpoint = torch.load(model_dir)
+            self.model.load_state_dict(checkpoint['model'])
         self.model._fc = Identity()
         
     def forward(self, x):
