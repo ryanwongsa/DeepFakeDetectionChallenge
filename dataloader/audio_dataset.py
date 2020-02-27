@@ -26,7 +26,7 @@ class AudioDataset(Dataset):
 
         
         if self.isBalanced:
-            self.length = min(len(self.fake_list), len(self.real_list))
+            self.length = min(len(self.fake_list), len(self.real_list))*2
         else:
             self.length = len(self.metadata)
             

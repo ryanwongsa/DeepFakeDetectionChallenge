@@ -156,7 +156,7 @@ class AudioTrainer(BaseAudioTrainer):
         else:
             x_batch, y_batch = batch
             preds = self.model(x_batch.to(self.device))
-            loss = mixup_criterion(preds, y_batch.to(self.device))
+            loss = self.criterion(preds, y_batch.to(self.device))
         
         dict_metrics = {"train_batch_loss":loss.item()}
         if self.scheduler is not None:
@@ -179,9 +179,8 @@ class AudioTrainer(BaseAudioTrainer):
                 predicted2 = torch.sigmoid(predicted)
                 predicted2[predicted2<0.5] = 0.5
                 loss = self.valid_criterion(predicted2, y_batch.to(self.device))
-                predicted3 = torch.sigmoid(predicted).mean(axis=0)
-                predicted3[predicted3<0.5] = 0.5
-                log_loss = self.log_loss_criterion(predicted3, y_batch[0].to(self.device))
+                predicted3 = torch.sigmoid(predicted)
+                log_loss = self.log_loss_criterion(predicted3, y_batch.to(self.device))
                 
                 self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
         
@@ -195,5 +194,5 @@ class AudioTrainer(BaseAudioTrainer):
         valid_dataset = AudioDataset(self.valid_dir, self.valid_meta_file, spec_aug=False, isBalanced=False, isValid=True)
         if length is not None:
             valid_dataset.length = length
-        self.validloader = DataLoader(valid_dataset, batch_size=128, shuffle=False, num_workers= self.num_workers,pin_memory= True, collate_fn= valid_dataset.collate_fn, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
+        self.validloader = DataLoader(valid_dataset, batch_size=self.batch_size, shuffle=False, num_workers= self.num_workers,pin_memory= True, collate_fn= valid_dataset.collate_fn, drop_last = False, worker_init_fn=valid_dataset.init_workers_fn)
     
