@@ -1,6 +1,20 @@
 from albumentations import JpegCompression, OneOf, Compose, HorizontalFlip
 from albumentations.augmentations.transforms import Resize, Downscale
 import albumentations as A
+import random
+
+def prep_transform(height, width, mappings, p=2/3):
+    scale = random.randint(2, 4)
+    return Compose([
+        OneOf([
+            JpegCompression(quality_lower=20, quality_upper=70, p=0.5),
+            Downscale(scale_min=0.25, scale_max=0.50, interpolation=1, p=0.5),
+            Resize(height//scale,width//scale, interpolation=1, p=1.0)
+        ], p=1.0),
+        HorizontalFlip(p=0.5)
+    ], p=p,
+    additional_targets=mappings)
+
 
 def base_transform(height, width, mappings, p=2/3):
     return Compose([

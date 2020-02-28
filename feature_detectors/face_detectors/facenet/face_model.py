@@ -3,6 +3,7 @@ from feature_detectors.face_detectors.facenet.face_detect import MTCNN
 import torch
 from PIL import Image
 import numpy as np
+from tqdm.auto import tqdm
 
 class FaceModel(object):
     def __init__(self, 
@@ -94,6 +95,29 @@ class FaceModel(object):
             batch_video_data.append(video_data)
         return batch_video_data, batch_video_labels
     
+    def extract_faces_for_saving(self, video):
+        
+        video_data = []
+        for index, frame in enumerate(tqdm(video, leave=False)):
+            if self.is_half:
+                frame = frame.half()
+            else:
+                frame = frame.float()
+            frame = frame.to(self.device).permute(2,0,1)
+
+            min_face_size = 20
+            boxes, probs = self.face_detector(frame.unsqueeze(0), min_face_size=min_face_size, return_prob=True)
+
+            if boxes[0] is not None:
+                for box, prob in zip(boxes[0], probs[0]):
+                    box_height = box[3]-box[1]
+                    margin = (box_height/self.margin_factor - box_height).round().int()
+
+                    faces, _ = extract_face(frame.unsqueeze(0), box, margin)
+                    standard_faces = standardise_img(faces, self.image_size)
+                    video_data.append(standard_faces[0])
+
+        return video_data
     
     def extract_face_sequence_labels(self, batch, sequence_length, test=False):
         if test:
