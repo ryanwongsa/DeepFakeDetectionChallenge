@@ -4,5 +4,6 @@ wandb==0.8.24
 albumentations==0.4.3
 scikit-image==0.14.2
 numpy==1.16
+librosa==0.7.1
 # line_profiler
 # py-heat-magic
