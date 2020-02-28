@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 import os
 from collections.abc import Iterable
-from feature_detectors.face_detectors.facenet.helper import *
+from feature_detectors.face_detectors.facenet.helper2 import *
 
 class PNet(nn.Module):
     def __init__(self, pretrained=True, pretrained_path='pretrained_models/pnet.pt'):

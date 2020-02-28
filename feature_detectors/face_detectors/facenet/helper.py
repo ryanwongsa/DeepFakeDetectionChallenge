@@ -119,7 +119,7 @@ def detect_face2_slower(imgs, minsize, pnet, rnet, onet, threshold, factor, devi
     for b_i in range(batch_size):
         b_i_inds = torch.where(image_inds == b_i)
         batch_boxes.append(boxes[b_i_inds])
-
+    
     return batch_boxes
         
 def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_half):
@@ -244,6 +244,7 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_h
                 total_boxes = total_boxes[pick, :]
 
         batch_boxes.append(total_boxes)
+
     return batch_boxes
 
 
