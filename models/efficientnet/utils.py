@@ -317,7 +317,7 @@ def load_pretrained_weights(model, model_name, load_fc=True):
         state_dict = model_zoo.load_url(url_map[model_name])
     except:
         print("unable to access url model using backup stored locally")
-        state_dict = torch.load(path_map['model_name'])
+        state_dict = torch.load(path_map[model_name])
     if load_fc:
         model.load_state_dict(state_dict)
     else:
