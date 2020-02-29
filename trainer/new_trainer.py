@@ -246,7 +246,8 @@ class Trainer(BaseTrainer):
                 dict_item_pred = {
                     "id": id,
                     "sig_pred": float(pred.item()),
-                    "out_pred": float(torch.sigmoid(predicted.mean(axis=0)).item())
+                    "out_pred": float(torch.sigmoid(predicted.mean(axis=0)).item()),
+                    "target":  float(labels[0])
                 }
                 self.cb.on_batch_valid_step_end({"pred":dict_item_pred,  "valid_original_loss": loss_original.item(), "valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item()})
         
