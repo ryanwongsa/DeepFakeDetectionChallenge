@@ -304,9 +304,10 @@ url_map = {
     'efficientnet-b7': 'https://publicmodels.blob.core.windows.net/container/aa/efficientnet-b7-dcc49843.pth',
 }
 
+# https://www.kaggle.com/hmendonca/efficientnet-pytorch backup source
 path_map = {
     'efficientnet-b6': 'efficientnet-b6-c76e70fd.pth',
-    'efficientnet-b7': 'efficientnet-b7-dcc49843.pth',
+    'efficientnet-b7': 'efficientnet-b7-dcc49843.pth', 
 }
 
 
