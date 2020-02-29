@@ -38,6 +38,7 @@ class Trainer(BaseTrainer):
         self.cutmix = hparams.cutmix
         
         self.sequence_length = hparams.sequence_length
+        self.cycle_length = hparams.cycle_length
         self.num_sequences = hparams.num_sequences
         self.batch_size = hparams.batch_size
         self.num_workers = hparams.num_workers
@@ -162,7 +163,7 @@ class Trainer(BaseTrainer):
         # self.scheduler_name
         self.initialise_before_schedule = False
         if self.scheduler_name == "warmup-with-cosine":
-            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, 4*len(self.trainloader))
+            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.cycle_length*len(self.trainloader))
             self.scheduler = GradualWarmupScheduler(self.optimizer, multiplier=10, total_epoch=len(self.trainloader), after_scheduler=scheduler_cosine)
         elif self.scheduler_name == "warmup-with-reduce":
             scheduler_relrplat = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', factor=0.1, patience=100, cooldown=100, verbose=True)
@@ -240,12 +241,14 @@ class Trainer(BaseTrainer):
                     predicted = self.model(sequences)
                 loss = self.criterion(predicted, labels)
                 pred = torch.sigmoid(predicted).mean(axis=0)
+                loss_original = self.criterion(predicted.mean(axis=0), labels[0])
                 log_loss = self.log_loss_criterion(pred, labels[0])
                 dict_item_pred = {
                     "id": id,
-                    "pred": float(pred.item())
+                    "sig_pred": float(pred.item()),
+                    "out_pred": float(torch.sigmoid(predicted.mean(axis=0)).item())
                 }
-                self.cb.on_batch_valid_step_end({"pred":dict_item_pred, "valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item()})
+                self.cb.on_batch_valid_step_end({"pred":dict_item_pred,  "valid_original_loss": loss_original.item(), "valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item()})
         
     def init_train_dataloader(self, aug=None, length = None):
         train_dataset = VideoSequenceDataset(self.train_dir, self.train_meta_file, transform=aug, isBalanced=True, num_sequences=self.num_sequences, sequence_length=self.sequence_length, select_type="random", isValid=False)
