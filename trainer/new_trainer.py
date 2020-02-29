@@ -103,7 +103,7 @@ class Trainer(BaseTrainer):
     def init_criterion(self):
         # self.criterion_name
         self.criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
-        self.log_loss_criterion = torch.nn.BCELoss() # torch.nn.BCELoss()
+        self.log_loss_criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
     
     def init_model(self):
         # self.network_name
@@ -240,12 +240,13 @@ class Trainer(BaseTrainer):
                 else:
                     predicted = self.model(sequences)
                 loss = self.criterion(predicted, labels)
-                pred = torch.sigmoid(predicted).mean(axis=0)
+
+                log_loss = self.log_loss_criterion(predicted.mean(axis=0), labels[0])
                 loss_original = self.criterion(predicted.mean(axis=0), labels[0])
-                log_loss = self.log_loss_criterion(pred, labels[0])
+
                 dict_item_pred = {
                     "id": id,
-                    "sig_pred": float(pred.item()),
+                    "sig_pred": float(torch.sigmoid(predicted).mean(axis=0).item()),
                     "out_pred": float(torch.sigmoid(predicted.mean(axis=0)).item()),
                     "target":  float(labels[0])
                 }
