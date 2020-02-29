@@ -72,6 +72,7 @@ class Callbacks(object):
         df = pd.DataFrame(self.valid_preds)
         make_save_dir('/'.join(self.save_dir.split('/')[:-1]))
         df.to_csv(f"{self.save_dir}-{str(self.step)}.csv", index=False)
+        self.valid_preds = []
         self.send_log({
             "valid_mean_loss": self.logger.get("valid_mean_loss"), 
             "valid_log_loss": self.logger.get("valid_log_loss"),
