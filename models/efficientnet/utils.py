@@ -11,7 +11,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils import model_zoo
-
+import torch
 ########################################################################
 ############### HELPERS FUNCTIONS FOR MODEL ARCHITECTURE ###############
 ########################################################################
@@ -304,10 +304,20 @@ url_map = {
     'efficientnet-b7': 'https://publicmodels.blob.core.windows.net/container/aa/efficientnet-b7-dcc49843.pth',
 }
 
+path_map = {
+    'efficientnet-b6': 'efficientnet-b6-c76e70fd.pth',
+    'efficientnet-b7': 'efficientnet-b7-dcc49843.pth',
+}
+
 
 def load_pretrained_weights(model, model_name, load_fc=True):
     """ Loads pretrained weights, and downloads if loading for the first time. """
-    state_dict = model_zoo.load_url(url_map[model_name])
+    
+    try:
+        state_dict = model_zoo.load_url(url_map[model_name])
+    except:
+        print("unable to access url model using backup stored locally")
+        state_dict = torch.load(path_map['model_name'])
     if load_fc:
         model.load_state_dict(state_dict)
     else:
