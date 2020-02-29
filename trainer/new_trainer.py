@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 from augmentations.augment import base_aug, more_aug
 
 from utils.schedulers import GradualWarmupScheduler
+from utils.mixup import *
 
 import cProfile
 try:
@@ -34,6 +35,7 @@ transform = transforms.Compose([transforms.Normalize([0.485, 0.456, 0.406], [0.2
 class Trainer(BaseTrainer):
     def __init__(self, hparams, train_length=None, valid_length=None):
         self.is_lr_finder = False
+        self.cutmix = hparams.cutmix
         
         self.sequence_length = hparams.sequence_length
         self.num_sequences = hparams.num_sequences
@@ -149,14 +151,14 @@ class Trainer(BaseTrainer):
         if lr is not None:
             self.lr = lr
         if self.network_name == 'sequence-resnext' or 'sequence-efficient' in self.network_name:
-            self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr)
+            self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr, weight_decay=1e-4)
         elif self.network_name == 'resnet-lstm':
             crnn_params = list(self.model.cnn_encoder.fc1.parameters()) + list(self.model.cnn_encoder.bn1.parameters()) + \
                   list(self.model.cnn_encoder.fc2.parameters()) + list(self.model.cnn_encoder.bn2.parameters()) + \
                   list(self.model.cnn_encoder.fc3.parameters()) + list(self.model.rnn_decoder.parameters())
-            self.optimizer = torch.optim.AdamW(crnn_params, lr=self.lr)
+            self.optimizer = torch.optim.AdamW(crnn_params, lr=self.lr, weight_decay=1e-4)
         else:
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=1e-4)
     
     def init_scheduler(self):
         # self.scheduler_name
@@ -184,7 +186,16 @@ class Trainer(BaseTrainer):
             if isTraining:
                 batch_sequences = torch.cat(batch_sequences,0)
                 batch_video_labels = torch.cat(batch_video_labels,0)
-                batch_sequences, batch_video_labels = get_samples(batch_sequences, batch_video_labels, num_samples=self.num_samples)
+                r = np.random.rand(1)
+                if self.cutmix and r < 0.5:
+                    batch_sequences, y_a, y_b, lam = cutmix_data(batch_sequences, batch_video_labels,sequence=True)
+                    batch_sequences, y_a, y_b = get_samples(batch_sequences, y_a, self.num_samples, y_b)
+                    batch_sequences, _ = get_normalised_sequences(batch_sequences, transform, self.isSequenceClassifier)
+
+                    self.cb.on_batch_process_end()
+                    return batch_sequences, y_a, y_b, lam
+                
+                batch_sequences, batch_video_labels = get_samples(batch_sequences, batch_video_labels, self.num_samples)
                 batch_sequences, _ = get_normalised_sequences(batch_sequences, transform, self.isSequenceClassifier)
         
         self.cb.on_batch_process_end()
@@ -195,14 +206,18 @@ class Trainer(BaseTrainer):
     '''
     def batch_train_step(self, batch, index):
         self.cb.on_batch_train_step_start()
-        
-        batch_sequences, batch_video_labels = batch
-        if batch_sequences.shape[0] != 0:
-            batch_predicted = self.model(batch_sequences)
-            loss = self.criterion(batch_predicted, batch_video_labels)
+        if len(batch)==4:
+            x_batch, y_batch_a, y_batch_b, lam = batch
+            preds = self.model(x_batch)
+            loss = mixup_criterion(self.criterion, preds, y_batch_a, y_batch_b, lam)
         else:
-            loss = torch.tensor(0.6931471805599453)
-            
+            batch_sequences, batch_video_labels = batch
+            if batch_sequences.shape[0] != 0:
+                batch_predicted = self.model(batch_sequences)
+                loss = self.criterion(batch_predicted, batch_video_labels)
+            else:
+                loss = torch.tensor(0.6931471805599453)
+                
         dict_metrics = {"train_batch_loss":loss.item()}
         if self.scheduler is not None:
             dict_metrics["lr"] = self.optimizer.param_groups[0]['lr']

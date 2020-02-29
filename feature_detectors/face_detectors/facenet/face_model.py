@@ -181,13 +181,14 @@ def get_random_samples(num_total, num_samples):
     choices = np.random.choice(indices, min(num_total, num_samples), replace=False)
     return choices
 
-def get_samples(batch_sequences, batch_labels, num_samples):
+def get_samples(batch_sequences, batch_labels, num_samples, additional_labels=None):
     num_total = batch_sequences.shape[0]
     choices = get_random_samples(num_total, num_samples=num_samples)
     
     batch_sequences = batch_sequences[choices]
     batch_labels = batch_labels[choices]
-    
+    if additional_labels is not None:
+        return batch_sequences, batch_labels, additional_labels[choices]
     return batch_sequences, batch_labels
 
 def get_normalised_sequences(sample_sequences, transform, isSequenceClassifier, batch_video_labels=None):
