@@ -163,6 +163,9 @@ class BaseTrainer(object):
             self.cb.on_epoch_end()
             self.save_checkpoint(self.cb.step, self.save_dir)
     
+    def evaluate(self):
+        self.valid_on_dl()
+    
     def get_batch(self):
         return next(iter(self.trainloader))
     

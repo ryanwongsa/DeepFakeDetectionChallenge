@@ -71,7 +71,7 @@ class Trainer(BaseTrainer):
         self.cb = Callbacks(log_every=1, save_dir=self.save_dir)
         
         if self.load_model_only == False:
-            self.init_train_dataloader(base_aug, length=train_length)
+            self.init_train_dataloader(more_aug, length=train_length)
         else:
             print("APPLYING MORE AUGMENTATION")
             self.init_train_dataloader(more_aug, length=train_length)
@@ -102,7 +102,7 @@ class Trainer(BaseTrainer):
     def init_criterion(self):
         # self.criterion_name
         self.criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
-        self.log_loss_criterion = torch.nn.BCEWithLogitsLoss() # torch.nn.BCELoss()
+        self.log_loss_criterion = torch.nn.BCELoss() # torch.nn.BCELoss()
     
     def init_model(self):
         # self.network_name
@@ -123,9 +123,7 @@ class Trainer(BaseTrainer):
         
         if self.network_name == 'cnn-lstm':
             self.model = CNNLSTM()
-            
         
-            
         self.FM = FaceModel(keep_top_k=self.keep_top_k, face_thresholds= self.face_thresholds,  threshold_prob = self.threshold_prob, device = self.device, image_size = self.image_size, margin_factor = self.margin_factor, is_half=True)
     
     def set_tuning_parameters(self):
@@ -197,9 +195,11 @@ class Trainer(BaseTrainer):
                 
                 batch_sequences, batch_video_labels = get_samples(batch_sequences, batch_video_labels, self.num_samples)
                 batch_sequences, _ = get_normalised_sequences(batch_sequences, transform, self.isSequenceClassifier)
-        
-        self.cb.on_batch_process_end()
-        return batch_sequences, batch_video_labels
+                self.cb.on_batch_process_end()
+                return batch_sequences, batch_video_labels
+            else:
+                self.cb.on_batch_process_end()
+                return batch[0], batch_sequences, batch_video_labels
 
     '''
     1.1.2. batch train
@@ -230,7 +230,7 @@ class Trainer(BaseTrainer):
     def batch_valid_step(self, batch, index):
         self.cb.on_batch_valid_step_start()
         with torch.no_grad():
-            for idx, (sequences, labels) in enumerate(zip(*batch)):
+            for idx, (id, sequences, labels) in enumerate(zip(*batch)):
                 sequences, _ = get_normalised_sequences(sequences, transform, self.isSequenceClassifier)
 
                 if len(sequences) == 0:
@@ -239,9 +239,13 @@ class Trainer(BaseTrainer):
                 else:
                     predicted = self.model(sequences)
                 loss = self.criterion(predicted, labels)
-                log_loss = self.log_loss_criterion(predicted.mean(axis=0), labels[0])
-                
-                self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item()})
+                pred = torch.sigmoid(predicted).mean(axis=0)
+                log_loss = self.log_loss_criterion(pred, labels[0])
+                dict_item_pred = {
+                    "id": id,
+                    "pred": float(pred.item())
+                }
+                self.cb.on_batch_valid_step_end({"pred":dict_item_pred, "valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item()})
         
     def init_train_dataloader(self, aug=None, length = None):
         train_dataset = VideoSequenceDataset(self.train_dir, self.train_meta_file, transform=aug, isBalanced=True, num_sequences=self.num_sequences, sequence_length=self.sequence_length, select_type="random", isValid=False)

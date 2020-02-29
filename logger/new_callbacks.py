@@ -1,4 +1,6 @@
 from logger.metric_logger import MetricLogger
+import pandas as pd
+from trainer.base_trainer import make_save_dir
 try:
     import wandb
 except:
@@ -62,10 +64,14 @@ class Callbacks(object):
         
         
     def on_valid_dl_start(self, dict_data={}):
+        self.valid_preds = []
         self.logger.reset_metrics(["valid_mean_loss", "valid_log_loss"])
     
     def on_valid_dl_end(self, dict_data={}):
         print("VALID:", self.epoch, self.step, self.logger.get("valid_mean_loss"), self.logger.get("valid_log_loss"))
+        df = pd.DataFrame(self.valid_preds)
+        make_save_dir('/'.join(self.save_dir.split('/')[:-1]))
+        df.to_csv(f"{self.save_dir}-{str(self.step)}.csv", index=False)
         self.send_log({
             "valid_mean_loss": self.logger.get("valid_mean_loss"), 
             "valid_log_loss": self.logger.get("valid_log_loss"),
@@ -81,6 +87,7 @@ class Callbacks(object):
         pass
     
     def on_batch_valid_step_end(self, dict_data={}):
+        self.valid_preds.append(dict_data["pred"])
         self.logger.update_metric(dict_data["valid_batch_loss"], "valid_batch_loss")
         self.logger.increment_metric(dict_data["valid_batch_loss"], "valid_mean_loss")
         self.logger.increment_metric(dict_data["valid_log_loss"], "valid_log_loss")
