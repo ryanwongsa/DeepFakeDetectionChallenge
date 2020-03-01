@@ -89,7 +89,8 @@ class Callbacks(object):
         pass
     
     def on_batch_valid_step_end(self, dict_data={}):
-        self.valid_preds.append(dict_data["pred"])
+        if "pred" in dict_data:
+            self.valid_preds.append(dict_data["pred"])
         self.logger.update_metric(dict_data["valid_batch_loss"], "valid_batch_loss")
         self.logger.increment_metric(dict_data["valid_batch_loss"], "valid_mean_loss")
         self.logger.increment_metric(dict_data["valid_log_loss"], "valid_log_loss")

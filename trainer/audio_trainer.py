@@ -149,7 +149,8 @@ class AudioTrainer(BaseAudioTrainer):
     '''
     def batch_train_step(self, batch, index):
         self.cb.on_batch_train_step_start()
-        if self.mixup or self.cutmix:
+        r = np.random.rand(1)
+        if (self.mixup or self.cutmix) and r < 0.5:
             x_batch, y_batch_a, y_batch_b, lam = batch
             preds = self.model(x_batch.to(self.device))
             loss = mixup_criterion(self.criterion, preds, y_batch_a.to(self.device), y_batch_b.to(self.device), lam)
@@ -178,9 +179,7 @@ class AudioTrainer(BaseAudioTrainer):
                 loss_original = self.criterion(predicted, y_batch.to(self.device))
                 predicted2 = torch.sigmoid(predicted)
                 predicted2[predicted2<0.5] = 0.5
-                loss = self.valid_criterion(predicted2, y_batch.to(self.device))
-                predicted3 = torch.sigmoid(predicted)
-                log_loss = self.log_loss_criterion(predicted3, y_batch.to(self.device))
+                log_loss = self.log_loss_criterion(predicted2, y_batch.to(self.device))
                 
                 self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
         
