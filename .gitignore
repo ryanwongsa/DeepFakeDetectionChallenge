@@ -131,3 +131,6 @@ dmypy.json
 lightning_logs/
 wandb
 *.ipynb
+
+*.json
+*.csv
