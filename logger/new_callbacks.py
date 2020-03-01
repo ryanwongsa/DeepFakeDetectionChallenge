@@ -65,10 +65,11 @@ class Callbacks(object):
         
     def on_valid_dl_start(self, dict_data={}):
         self.valid_preds = []
+        self.num_above = 0
         self.logger.reset_metrics(["valid_mean_loss", "valid_log_loss", "valid_original_loss"])
     
     def on_valid_dl_end(self, dict_data={}):
-        print("VALID:", self.epoch, self.step, self.logger.get("valid_mean_loss"), self.logger.get("valid_log_loss"))
+        print("VALID:", self.epoch, self.step, self.logger.get("valid_mean_loss"), self.logger.get("valid_log_loss"), self.num_above)
         df = pd.DataFrame(self.valid_preds)
         make_save_dir('/'.join(self.save_dir.split('/')[:-1]))
         df.to_csv(f"{self.save_dir}-{str(self.step)}.csv", index=False)
@@ -77,6 +78,7 @@ class Callbacks(object):
             "valid_mean_loss": self.logger.get("valid_mean_loss"), 
             "valid_log_loss": self.logger.get("valid_log_loss"),
             "valid_original_loss": self.logger.get("valid_original_loss"),
+            "num_above": self.num_above
         }, True)
         
     def on_batch_valid_start(self, dict_data={}):
@@ -91,6 +93,8 @@ class Callbacks(object):
     def on_batch_valid_step_end(self, dict_data={}):
         if "pred" in dict_data:
             self.valid_preds.append(dict_data["pred"])
+        if "num_above" in dict_data:
+            self.num_above +=dict_data["num_above"]
         self.logger.update_metric(dict_data["valid_batch_loss"], "valid_batch_loss")
         self.logger.increment_metric(dict_data["valid_batch_loss"], "valid_mean_loss")
         self.logger.increment_metric(dict_data["valid_log_loss"], "valid_log_loss")

@@ -88,17 +88,24 @@ class AudioDataset(Dataset):
         
         time_dim, base_dim = image.shape[1], image.shape[0]
         if self.isValid:
-            crop = time_dim//2 - base_dim//2
+            crops = list(range(0,time_dim-base_dim,(time_dim-base_dim)//10))
+            images = []
+            for crop in crops:
+                image2 = image[:, crop:crop + base_dim, ...]
+                image2 = Image.fromarray(image2[...,0], mode='L')
+                image2 = self.transforms(image2)
+                images.append(image2)
+            image = torch.stack(images,0)
         else:
             crop = np.random.randint(0, time_dim - base_dim)
-        image = image[:, crop:crop + base_dim, ...]
-        if self.spec_aug:
-            freq_mask_begin = int(np.random.uniform(0, 1 - self.freq_mask) * base_dim)
-            image[freq_mask_begin:freq_mask_begin + int(self.freq_mask * base_dim), ...] = 0
-            time_mask_begin = int(np.random.uniform(0, 1 - self.time_mask) * base_dim)
-            image[:, time_mask_begin:time_mask_begin + int(self.time_mask * base_dim), ...] = 0
-        image = Image.fromarray(image[...,0], mode='L')
-        image = self.transforms(image)
+            image = image[:, crop:crop + base_dim, ...]
+            if self.spec_aug:
+                freq_mask_begin = int(np.random.uniform(0, 1 - self.freq_mask) * base_dim)
+                image[freq_mask_begin:freq_mask_begin + int(self.freq_mask * base_dim), ...] = 0
+                time_mask_begin = int(np.random.uniform(0, 1 - self.time_mask) * base_dim)
+                image[:, time_mask_begin:time_mask_begin + int(self.time_mask * base_dim), ...] = 0
+            image = Image.fromarray(image[...,0], mode='L')
+            image = self.transforms(image)
         if video_metadata["audio_label"] == 'FAKE':
             label = 1
         else:

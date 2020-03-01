@@ -124,7 +124,8 @@ class AudioTrainer(BaseAudioTrainer):
         source_filenames, x_batch, y_batch, video_original_filenames = batch
         y_batch = y_batch.float()
         if isTraining:
-            if self.mixup or self.cutmix:
+            r = np.random.rand(1)
+            if (self.mixup or self.cutmix) and r < 0.5:
                 if self.mixup and (not self.cutmix):
                     x_batch, y_batch_a, y_batch_b, lam = mixup_data(x_batch, y_batch)
                 elif self.cutmix and (not self.mixup):
@@ -150,7 +151,7 @@ class AudioTrainer(BaseAudioTrainer):
     def batch_train_step(self, batch, index):
         self.cb.on_batch_train_step_start()
         r = np.random.rand(1)
-        if (self.mixup or self.cutmix) and r < 0.5:
+        if (len(batch)==4):
             x_batch, y_batch_a, y_batch_b, lam = batch
             preds = self.model(x_batch.to(self.device))
             loss = mixup_criterion(self.criterion, preds, y_batch_a.to(self.device), y_batch_b.to(self.device), lam)
@@ -173,15 +174,15 @@ class AudioTrainer(BaseAudioTrainer):
         self.cb.on_batch_valid_step_start()
         with torch.no_grad():
             for idx, (x_batch, y_batch) in enumerate(zip(*batch)):
-                x_batch = x_batch.unsqueeze(0)
+                x_batch = x_batch
                 y_batch = y_batch.unsqueeze(0)
                 predicted = self.model(x_batch.to(self.device))
-                loss_original = self.criterion(predicted, y_batch.to(self.device))
-                predicted2 = torch.sigmoid(predicted)
+                loss_original = self.criterion(predicted.mean(axis=0).unsqueeze(0), y_batch.to(self.device))
+                predicted2 = torch.sigmoid(predicted).mean(axis=0)
                 predicted2[predicted2<0.5] = 0.5
                 log_loss = self.log_loss_criterion(predicted2, y_batch.to(self.device))
                 
-                self.cb.on_batch_valid_step_end({"valid_batch_loss":loss.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
+                self.cb.on_batch_valid_step_end({"num_above":(predicted2>0.5).sum().item(),"valid_batch_loss":loss_original.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
         
     def init_train_dataloader(self, length = None):
         train_dataset = AudioDataset(self.train_dir, self.train_meta_file, spec_aug=False, isBalanced=True, isValid=False)
