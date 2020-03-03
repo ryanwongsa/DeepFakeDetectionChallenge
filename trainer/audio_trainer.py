@@ -182,7 +182,7 @@ class AudioTrainer(BaseAudioTrainer):
                 predicted2[predicted2<0.5] = 0.5
                 log_loss = self.log_loss_criterion(predicted2, y_batch.to(self.device))
                 
-                self.cb.on_batch_valid_step_end({"num_above":(predicted2>0.5).sum().item(),"valid_batch_loss":loss_original.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
+                self.cb.on_batch_valid_step_end({"predicted":torch.sigmoid(predicted).mean(axis=0).item(), "actual":y_batch[0].item(),"num_above":(predicted2>0.5).sum().item(),"valid_batch_loss":loss_original.item(), "valid_log_loss": log_loss.item(), "valid_original_loss":loss_original.item()})
         
     def init_train_dataloader(self, length = None):
         train_dataset = AudioDataset(self.train_dir, self.train_meta_file, spec_aug=False, isBalanced=True, isValid=False)

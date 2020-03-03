@@ -15,7 +15,7 @@ from models.resnet_cnn_lstm.model import ResnetLSTM
 from logger.new_callbacks import Callbacks
 from torch.utils.data import DataLoader
 
-from augmentations.augment import base_aug, more_aug
+from augmentations.augment import base_aug, more_aug, even_more_aug
 
 from utils.schedulers import GradualWarmupScheduler
 from utils.mixup import *
@@ -75,7 +75,7 @@ class Trainer(BaseTrainer):
             self.init_train_dataloader(more_aug, length=train_length)
         else:
             print("APPLYING MORE AUGMENTATION")
-            self.init_train_dataloader(more_aug, length=train_length)
+            self.init_train_dataloader(even_more_aug, length=train_length)
         self.init_valid_dataloader(length = valid_length)
         
         self.init_criterion()
@@ -150,14 +150,14 @@ class Trainer(BaseTrainer):
         if lr is not None:
             self.lr = lr
         if self.network_name == 'sequence-resnext' or 'sequence-efficient' in self.network_name:
-            self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr, weight_decay=1e-4)
+            self.optimizer = torch.optim.AdamW(self.model.decoder_model.parameters(), lr=self.lr, weight_decay=1e-2)
         elif self.network_name == 'resnet-lstm':
             crnn_params = list(self.model.cnn_encoder.fc1.parameters()) + list(self.model.cnn_encoder.bn1.parameters()) + \
                   list(self.model.cnn_encoder.fc2.parameters()) + list(self.model.cnn_encoder.bn2.parameters()) + \
                   list(self.model.cnn_encoder.fc3.parameters()) + list(self.model.rnn_decoder.parameters())
-            self.optimizer = torch.optim.AdamW(crnn_params, lr=self.lr, weight_decay=1e-4)
+            self.optimizer = torch.optim.AdamW(crnn_params, lr=self.lr, weight_decay=1e-2)
         else:
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=1e-4)
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr, weight_decay=1e-2)
     
     def init_scheduler(self):
         # self.scheduler_name
@@ -219,7 +219,7 @@ class Trainer(BaseTrainer):
             else:
                 loss = torch.tensor(0.6931471805599453)
                 
-        dict_metrics = {"train_batch_loss":loss.item()}
+        dict_metrics = {"train_batch_loss":loss.item(), "batch_size":len(batch)}
         if self.scheduler is not None:
             dict_metrics["lr"] = self.optimizer.param_groups[0]['lr']
 
