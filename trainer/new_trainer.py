@@ -219,7 +219,7 @@ class Trainer(BaseTrainer):
             else:
                 loss = torch.tensor(0.6931471805599453)
                 
-        dict_metrics = {"train_batch_loss":loss.item(), "batch_size":len(batch)}
+        dict_metrics = {"train_batch_loss":loss.item(), "batch_size":len(batch[0])}
         if self.scheduler is not None:
             dict_metrics["lr"] = self.optimizer.param_groups[0]['lr']
 
