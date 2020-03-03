@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 import json
 import numpy as np
 import os
-from utils.audio_helpers import get_default_conf, read_as_melspectrogram, mono_to_color
+from utils_helper.audio_helpers import get_default_conf, read_as_melspectrogram, mono_to_color
 from PIL import Image
 from torchvision.transforms import transforms
 

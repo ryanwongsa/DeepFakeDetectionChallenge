@@ -1,5 +1,5 @@
 import torch
-from utils.lr_finder import ExponentialLR, LinearLR
+from utils_helper.lr_finder import ExponentialLR, LinearLR
 from tqdm.auto import tqdm
 
 import pickle

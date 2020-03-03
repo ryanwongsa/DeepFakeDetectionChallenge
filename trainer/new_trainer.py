@@ -17,8 +17,8 @@ from torch.utils.data import DataLoader
 
 from augmentations.augment import base_aug, more_aug, even_more_aug
 
-from utils.schedulers import GradualWarmupScheduler
-from utils.mixup import *
+from utils_helper.schedulers import GradualWarmupScheduler
+from utils_helper.mixup import *
 
 import cProfile
 try:

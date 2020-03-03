@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from models.audio_models.model_dcase import ConvNet
 from models.audio_models.model_m1 import Classifier_M2, Classifier_M3
 from models.audio_models.model_m0 import Classifier
-from utils.mixup import *
+from utils_helper.mixup import *
 import numpy as np
 
 import cProfile
