@@ -92,34 +92,34 @@ class BaseTrainer(object):
     '''
     def batch_train(self, batch, index):
         self.cb.on_batch_train_start()
-#         try:
-        batch = self.batch_process(batch, index, isTraining=True)
-        loss = self.batch_train_step(batch, index)
-        self.loss_backpass(loss)
-        if self.grad_clip:
-            if self.use_amp:
-                torch.nn.utils.clip_grad_value_(amp.master_params(self.optimizer), self.clip_val)
-            else:
-                torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_val)
-        elif self.grad_clip_norm:
-            if self.use_amp:
-                torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer), self.clip_val)
-            else:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_val)
-        
-        
-        if (index+1)%self.grad_acc_num == 0:
-            self.optimizer.step()
-            if self.scheduler is not None and self.is_lr_finder == False:
-                if self.initialise_before_schedule and 0.4>index/len(self.trainloader):
-                    self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"), True)
+        try:
+            batch = self.batch_process(batch, index, isTraining=True)
+            loss = self.batch_train_step(batch, index)
+            self.loss_backpass(loss)
+            if self.grad_clip:
+                if self.use_amp:
+                    torch.nn.utils.clip_grad_value_(amp.master_params(self.optimizer), self.clip_val)
                 else:
-                    self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"))
-            elif self.is_lr_finder:
-                self.scheduler.step()
-            self.optimizer.zero_grad()
-#         except Exception as e:
-#             print(e)
+                    torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_val)
+            elif self.grad_clip_norm:
+                if self.use_amp:
+                    torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer), self.clip_val)
+                else:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_val)
+            
+            
+            if (index+1)%self.grad_acc_num == 0:
+                self.optimizer.step()
+                if self.scheduler is not None and self.is_lr_finder == False:
+                    if self.initialise_before_schedule and 0.4>index/len(self.trainloader):
+                        self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"), True)
+                    else:
+                        self.scheduler.step(self.cb.step,self.cb.logger.get("train_mean_loss"))
+                elif self.is_lr_finder:
+                    self.scheduler.step()
+                self.optimizer.zero_grad()
+        except Exception as e:
+            print("Main training batch exception: ", e)
         self.cb.on_batch_train_end()
 
     '''
