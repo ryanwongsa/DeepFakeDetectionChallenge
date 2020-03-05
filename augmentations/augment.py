@@ -69,7 +69,6 @@ def even_more_transform(height, width, mappings, p=2/3):
         ], p=0.5),
         OneOf([
             A.CLAHE(p=0.2),
-            A.ChannelShuffle(p=0.2),
             A.MultiplicativeNoise(multiplier=[0.5, 1.5], elementwise=True, p=0.1),
             A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.2),
         ], p=0.5),
