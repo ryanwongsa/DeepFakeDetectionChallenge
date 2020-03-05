@@ -37,7 +37,7 @@ def rand_bbox(size, lam, sequence=False):
 
     return bbx1, bby1, bbx2, bby2
 
-def cutmix_data(x, y, alpha=0.4, device="cuda", sequence=False):
+def cutmix_data(x, y, alpha=1.0, device="cuda", sequence=False):
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
