@@ -185,8 +185,8 @@ class Trainer(BaseTrainer):
             if isTraining:
                 batch_sequences = torch.cat(batch_sequences,0)
                 batch_video_labels = torch.cat(batch_video_labels,0)
-                r = np.random.rand(1)
-                if self.cutmix and r < 0.5:
+                # r = np.random.rand(1)
+                if self.cutmix: # and r < 0.5:
                     batch_sequences, y_a, y_b, lam = cutmix_data(batch_sequences, batch_video_labels,sequence=True)
                     batch_sequences, y_a, y_b = get_samples(batch_sequences, y_a, self.num_samples, y_b)
                     batch_sequences, _ = get_normalised_sequences(batch_sequences, transform, self.isSequenceClassifier)
