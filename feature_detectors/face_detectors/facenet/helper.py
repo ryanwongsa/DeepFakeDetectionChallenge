@@ -41,9 +41,10 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_h
         all_i += batch_size
 
     boxes = torch.cat(boxes, dim=0)
+    
     image_inds = torch.cat(image_inds, dim=0).cpu()
     all_inds = torch.cat(all_inds, dim=0)
-
+    
     # NMS within each scale + image
     pick = batched_nms(boxes[:, :4], boxes[:, 4], all_inds, 0.5)
     boxes, image_inds = boxes[pick], image_inds[pick]
@@ -76,8 +77,12 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_h
         out0 = out[0].permute(1, 0)
         out1 = out[1].permute(1, 0)
         score = out1[1, :]
-        ipass = score > threshold[1]
-        boxes = torch.cat((boxes[ipass, :4], score[ipass].unsqueeze(1)), dim=1)
+        # ipass = score > threshold[1]
+        # boxes = torch.cat((boxes[ipass, :4], score[ipass].unsqueeze(1)), dim=1)
+        
+        ipass = torch.where(score > threshold[1])
+        boxes = torch.cat([boxes[ipass[0], :4], score[ipass].unsqueeze(1)], dim=1)
+        ipass = ipass[0].cpu().numpy()
         image_inds = image_inds[ipass]
         mv = out0[:, ipass].permute(1, 0)
 
@@ -104,8 +109,13 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_h
         out1 = out[1].permute(1, 0)
         out2 = out[2].permute(1, 0)
         score = out2[1, :]
-        ipass = score > threshold[2]
-        boxes = torch.cat((boxes[ipass, :4], score[ipass].unsqueeze(1)), dim=1)
+
+        # ipass = score > threshold[2]
+        # boxes = torch.cat((boxes[ipass, :4], score[ipass].unsqueeze(1)), dim=1)
+        ipass = torch.where(score > threshold[2])
+        boxes = torch.cat([boxes[ipass[0], :4], score[ipass].unsqueeze(1)], dim=1)
+        ipass = ipass[0].cpu().numpy()
+
         image_inds = image_inds[ipass]
         mv = out0[:, ipass].permute(1, 0)
 
@@ -117,13 +127,6 @@ def detect_face(imgs, minsize, pnet, rnet, onet, threshold, factor, device, is_h
         # pick = batched_nms(boxes[:, :4], boxes[:, 4], image_inds, 0.7)
         pick = batched_nms_numpy(boxes[:, :4], boxes[:, 4], image_inds, 0.7, 'Min')
         boxes, image_inds = boxes[pick], image_inds[pick]
-
-    # boxes = boxes.cpu().numpy()
-
-    # batch_boxes = []
-    # for b_i in range(batch_size):
-    #     b_i_inds = np.where(image_inds == b_i)
-    #     batch_boxes.append(torch.as_tensor(boxes[b_i_inds].copy()).to(device).half())
 
     batch_boxes = []
     for b_i in range(batch_size):
@@ -218,18 +221,17 @@ def batched_nms_numpy(boxes, scores, idxs, threshold, method):
     max_coordinate = boxes.max()
     offsets = idxs.to(boxes) * (max_coordinate + 1)
     boxes_for_nms = boxes + offsets[:, None]
-    boxes_for_nms = boxes_for_nms.cpu().numpy()
+    boxes_for_nms = boxes_for_nms.float().cpu().numpy()
     scores = scores.cpu().numpy()
     keep = nms_numpy(boxes_for_nms, scores, threshold, method)
     return torch.as_tensor(keep, dtype=torch.long, device=device)
 
 
 def pad(boxes, w, h):
-    boxes = boxes.trunc().int().cpu().numpy()
-    x = boxes[:, 0]
-    y = boxes[:, 1]
-    ex = boxes[:, 2]
-    ey = boxes[:, 3]
+    x = boxes[:, 0].type(torch.LongTensor)
+    y = boxes[:, 1].type(torch.LongTensor)
+    ex = boxes[:, 2].type(torch.LongTensor)
+    ey = boxes[:, 3].type(torch.LongTensor)
 
     x[x < 1] = 1
     y[y < 1] = 1
