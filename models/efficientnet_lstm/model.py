@@ -43,27 +43,25 @@ class DecoderRNN(nn.Module):
             input_size=input_size,
             hidden_size=512,
             num_layers=2,
-            dropout=0.3,
+            dropout=0.5,
             batch_first=True,       # input & output will has batch size as 1s dimension. e.g. (batch, time_step, input_size)
-            bidirectional=True
         )
 
 #         self.fc1 = nn.Linear(1024, 512)
-        self.fc1 = nn.Linear(512*2, 1)
+        self.fc1 = nn.Linear(512, 1)
 
     def forward(self, x):
         
 #         self.LSTM.flatten_parameters()
         x, (h_n, h_c) = self.LSTM(x, None)
-        x = self.fc1(x)
-        
+        x = self.fc1(x[:, -1, :])
     
 #         x = self.fc1(RNN_out[:, -1, :])   # choose RNN_out at the last time step
 #         x = F.relu(x)
 #         x = F.dropout(x, p=0.1, training=self.training)
 #         x = self.fc2(x)
 
-        return x[:, -1, :]
+        return x
     
 class SequenceModelEfficientNet(nn.Module):
     def __init__(self, model_name, model_dir):
@@ -84,6 +82,6 @@ class SequenceModelEfficientNet(nn.Module):
             x = x.view(batch_size * timesteps, C, H, W)
             x = self.encoder_model(x)
         x = x.view(batch_size, timesteps, -1)
-        x = F.dropout(x, p=0.4, training=self.training)
+        x = F.dropout(x, p=0.5, training=self.training)
         x = self.decoder_model(x)
         return x
