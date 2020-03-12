@@ -54,14 +54,12 @@ more_aug = more_transform, (2,1/3)
 def even_more_transform(height, width, mappings, p=2/3):
     scale = random.randint(2, 4)
     return Compose([
-        A.Blur(p=0.05),
         OneOf([
-            JpegCompression(quality_lower=10, quality_upper=50, p=0.5),
-            Downscale(scale_min=0.10, scale_max=0.40, interpolation=1, p=0.5),
+            JpegCompression(quality_lower=20, quality_upper=70, p=0.5),
+            Downscale(scale_min=0.25, scale_max=0.50, interpolation=1, p=0.5),
             Resize(height//scale,width//scale, interpolation=1, p=1.0)
         ], p=0.75),
         HorizontalFlip(p=0.5),
-        A.Blur(p=0.05),
         OneOf([
             A.augmentations.transforms.GaussNoise(p=0.2),
             A.RandomBrightnessContrast(p=0.3),    
@@ -69,6 +67,7 @@ def even_more_transform(height, width, mappings, p=2/3):
         ], p=0.5),
         OneOf([
             A.CLAHE(p=0.2),
+            A.Blur(p=0.02),
             A.MultiplicativeNoise(multiplier=[0.5, 1.5], elementwise=True, p=0.1),
             A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.2),
         ], p=0.5),
