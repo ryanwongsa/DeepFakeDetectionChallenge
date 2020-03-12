@@ -64,13 +64,13 @@ def even_more_transform(height, width, mappings, p=2/3):
             A.augmentations.transforms.GaussNoise(p=0.2),
             A.RandomBrightnessContrast(p=0.3),    
             A.RandomGamma(p=0.2),    
-        ], p=0.5),
+        ], p=0.25),
         OneOf([
             A.CLAHE(p=0.2),
             A.Blur(p=0.02),
             A.MultiplicativeNoise(multiplier=[0.5, 1.5], elementwise=True, p=0.1),
             A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=20, val_shift_limit=20, p=0.2),
-        ], p=0.5),
+        ], p=0.25),
     ], p=0.9,
     additional_targets=mappings)
 
