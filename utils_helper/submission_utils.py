@@ -61,7 +61,7 @@ def readVideoSequence(videoFile, sequence_length, num_sequences):
                 pass
         f+=1
     cap.release()
-    return list_of_squences
+    return torch.stack(list_of_squences,0)
 
 
 def read_audio(conf, pathname, trim_long_data):

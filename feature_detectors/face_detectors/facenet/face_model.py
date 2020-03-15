@@ -168,6 +168,91 @@ class FaceModel(object):
 #         batch_video_labels = torch.cat(batch_video_labels,0)
         return batch_video_data, batch_video_labels
 
+    def s_faces(self, seq, box, margin):
+        faces, _ = extract_face(seq, box, margin)
+        standard_faces = standardise_img(faces, self.image_size)
+        return standard_faces
+    
+    def extract_face_sequence(self, sequences, sequence_length, transform):
+        list_single_faces75 = []
+        list_sequence_faces75 = []
+        list_single_faces100 = []
+        list_sequence_faces100 = []
+        for seq_i, sequence in enumerate(sequences):
+            if self.is_half:
+                sequence = sequence.half()
+            else:
+                sequence = sequence.float()
+            sequence = sequence.to(self.device).permute(0,3,1,2)
+            sboxes, sprobs = self.face_detector(sequence, min_face_size=20, return_prob=True)
+            single_faces75 = []
+            sequence_faces75 = []
+            single_faces100 = []
+            sequence_faces100 = []
+            index_face_analysis = sequence_length//2
+            for i, (img, sbox, sprob) in enumerate(zip(sequence, sboxes, sprobs)):
+                if sbox is not None:
+                    for box in sbox:
+                        box_height = box[3]-box[1]
+                        
+                        margin = (box_height/0.75 - box_height).round().int()
+                        standard_faces = self.s_faces(img.unsqueeze(0), box, margin)
+                        single_faces75.append(standard_faces)
+                        
+                        standard_faces = self.s_faces(img.unsqueeze(0), box, 0)
+                        single_faces100.append(standard_faces)
+                        
+                        if index_face_analysis == i:
+                            standard_faces = self.s_faces(sequence, box, margin)
+                            sequence_faces75.append(standard_faces)
+                            
+                            standard_faces = self.s_faces(sequence, box, 0)
+                            sequence_faces100.append(standard_faces)
+            if len(single_faces75)>0:
+                single_faces75 = torch.cat(single_faces75,0)
+                list_single_faces75.append(single_faces75)
+            if len(sequence_faces75)>0:
+                sequence_faces75 = torch.stack(sequence_faces75,0)
+                list_sequence_faces75.append(sequence_faces75) 
+            if len(single_faces100)>0:
+                single_faces100 = torch.cat(single_faces100,0)
+                list_single_faces100.append(single_faces100)
+            if len(sequence_faces100)>0:
+                sequence_faces100 = torch.stack(sequence_faces100,0)
+                list_sequence_faces100.append(sequence_faces100)
+
+        if len(list_single_faces75)>0:
+            list_single_faces75 = torch.cat(list_single_faces75, 0).float()
+            list_single_faces75 = get_normalised_sequences(list_single_faces75.unsqueeze(0), transform, False)[0]
+        else:
+            list_single_faces75 = None
+            
+        if len(list_sequence_faces75)>0:
+            list_sequence_faces75 = torch.cat(list_sequence_faces75, 0).float()
+            list_sequence_faces75 = get_normalised_sequences(list_sequence_faces75, transform, True)[0]
+        else:
+            list_sequence_faces75 = None
+            
+        if len(list_single_faces100)>0:
+            list_single_faces100 = torch.cat(list_single_faces100, 0).float()
+            list_single_faces100 = get_normalised_sequences(list_single_faces100.unsqueeze(0), transform, True)[0]
+        else:
+            list_single_faces100 = None
+            
+        if len(list_sequence_faces100)>0:
+            list_sequence_faces100 = torch.cat(list_sequence_faces100, 0).float()
+            list_sequence_faces100 = get_normalised_sequences(list_sequence_faces100, transform, True)[0]
+        else:
+            list_sequence_faces100 = None
+                
+        return {
+            "single75": list_single_faces75,
+            "sequence75": list_sequence_faces75,
+            "single100": list_single_faces100,
+            "sequence100": list_sequence_faces100
+        }
+
+
         
 def get_image(img, device = 'cuda'):
     if device == 'cuda':
