@@ -58,7 +58,7 @@ def even_more_transform(height, width, mappings, p=2/3):
             JpegCompression(quality_lower=20, quality_upper=70, p=0.5),
             Downscale(scale_min=0.25, scale_max=0.50, interpolation=1, p=0.5),
             Resize(height//scale,width//scale, interpolation=1, p=1.0)
-        ], p=0.75),
+        ], p=0.6),
         HorizontalFlip(p=0.5),
         A.augmentations.transforms.GaussNoise(p=0.2),
         A.RandomBrightnessContrast(p=0.2),    
