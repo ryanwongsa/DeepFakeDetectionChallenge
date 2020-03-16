@@ -10,6 +10,7 @@ from models.efficientnet.net import Net
 from models.vgg_net.sequence_net import SequenceNet
 from models.resnext50_sequence.resnext_sequence_model import SequenceModelResnext
 from models.efficientnet_lstm.model import SequenceModelEfficientNet
+from models.resnext50.resnext_model import Resnext50
 from models.clstm.model import CNNLSTM
 from models.resnet_cnn_lstm.model import ResnetLSTM
 from logger.new_callbacks import Callbacks
@@ -118,6 +119,9 @@ class Trainer(BaseTrainer):
             
         if self.network_name == 'sequence-vgg':
             self.model = SequenceNet()
+        
+        if self.network_name == 'resnext50':
+            self.model = Resnext50()
             
         if self.network_name == 'sequence-resnext':
             self.model = SequenceModelResnext()
