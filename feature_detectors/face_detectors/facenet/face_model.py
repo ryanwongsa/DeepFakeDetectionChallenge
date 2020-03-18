@@ -176,8 +176,8 @@ class FaceModel(object):
     def extract_face_sequence(self, sequences, sequence_length, transform):
         list_single_faces75 = []
         list_sequence_faces75 = []
-        list_single_faces100 = []
-        list_sequence_faces100 = []
+        # list_single_faces100 = []
+        # list_sequence_faces100 = []
         for seq_i, sequence in enumerate(sequences):
             if self.is_half:
                 sequence = sequence.half()
@@ -187,8 +187,8 @@ class FaceModel(object):
             sboxes, sprobs = self.face_detector(sequence, min_face_size=20, return_prob=True)
             single_faces75 = []
             sequence_faces75 = []
-            single_faces100 = []
-            sequence_faces100 = []
+            # single_faces100 = []
+            # sequence_faces100 = []
             index_face_analysis = sequence_length//2
             for i, (img, sbox, sprob) in enumerate(zip(sequence, sboxes, sprobs)):
                 if sbox is not None:
@@ -199,27 +199,27 @@ class FaceModel(object):
                         standard_faces = self.s_faces(img.unsqueeze(0), box, margin)
                         single_faces75.append(standard_faces)
                         
-                        standard_faces = self.s_faces(img.unsqueeze(0), box, 0)
-                        single_faces100.append(standard_faces)
+                        # standard_faces = self.s_faces(img.unsqueeze(0), box, 0)
+                        # single_faces100.append(standard_faces)
                         
                         if index_face_analysis == i:
                             standard_faces = self.s_faces(sequence, box, margin)
                             sequence_faces75.append(standard_faces)
                             
-                            standard_faces = self.s_faces(sequence, box, 0)
-                            sequence_faces100.append(standard_faces)
+                            # standard_faces = self.s_faces(sequence, box, 0)
+                            # sequence_faces100.append(standard_faces)
             if len(single_faces75)>0:
                 single_faces75 = torch.cat(single_faces75,0)
                 list_single_faces75.append(single_faces75)
             if len(sequence_faces75)>0:
                 sequence_faces75 = torch.stack(sequence_faces75,0)
                 list_sequence_faces75.append(sequence_faces75) 
-            if len(single_faces100)>0:
-                single_faces100 = torch.cat(single_faces100,0)
-                list_single_faces100.append(single_faces100)
-            if len(sequence_faces100)>0:
-                sequence_faces100 = torch.stack(sequence_faces100,0)
-                list_sequence_faces100.append(sequence_faces100)
+            # if len(single_faces100)>0:
+            #     single_faces100 = torch.cat(single_faces100,0)
+            #     list_single_faces100.append(single_faces100)
+            # if len(sequence_faces100)>0:
+            #     sequence_faces100 = torch.stack(sequence_faces100,0)
+            #     list_sequence_faces100.append(sequence_faces100)
 
         if len(list_single_faces75)>0:
             list_single_faces75 = torch.cat(list_single_faces75, 0).float()
@@ -233,23 +233,23 @@ class FaceModel(object):
         else:
             list_sequence_faces75 = None
             
-        if len(list_single_faces100)>0:
-            list_single_faces100 = torch.cat(list_single_faces100, 0).float()
-            list_single_faces100 = get_normalised_sequences(list_single_faces100.unsqueeze(0), transform, True)[0]
-        else:
-            list_single_faces100 = None
+        # if len(list_single_faces100)>0:
+        #     list_single_faces100 = torch.cat(list_single_faces100, 0).float()
+        #     list_single_faces100 = get_normalised_sequences(list_single_faces100.unsqueeze(0), transform, True)[0]
+        # else:
+        #     list_single_faces100 = None
             
-        if len(list_sequence_faces100)>0:
-            list_sequence_faces100 = torch.cat(list_sequence_faces100, 0).float()
-            list_sequence_faces100 = get_normalised_sequences(list_sequence_faces100, transform, True)[0]
-        else:
-            list_sequence_faces100 = None
+        # if len(list_sequence_faces100)>0:
+        #     list_sequence_faces100 = torch.cat(list_sequence_faces100, 0).float()
+        #     list_sequence_faces100 = get_normalised_sequences(list_sequence_faces100, transform, True)[0]
+        # else:
+        #     list_sequence_faces100 = None
                 
         return {
             "single75": list_single_faces75,
             "sequence75": list_sequence_faces75,
-            "single100": list_single_faces100,
-            "sequence100": list_sequence_faces100
+            # "single100": list_single_faces100,
+            # "sequence100": list_sequence_faces100
         }
 
 
