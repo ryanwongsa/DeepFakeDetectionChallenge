@@ -134,3 +134,5 @@ wandb
 
 *.json
 *.csv
+*.ckpt
+*.pkl
