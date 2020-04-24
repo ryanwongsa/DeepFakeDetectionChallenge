@@ -1,15 +1,17 @@
 # Deepfake Detection Challenge
 
-My solution to the [Kaggle Deepfake Detection Challenge](https://www.kaggle.com/c/deepfake-detection-challenge) to achieve top 1% on the public leaderboard.
+My solution to the [Kaggle Deepfake Detection Challenge](https://www.kaggle.com/c/deepfake-detection-challenge) to achieve top 1% on the public and private leaderboard.
 
-The final sumbission that was used was an ensemble of 3 models:
+The final sumbission used was an ensemble of 3 models:
 - Single Frame classifier B6-EfficientNet pretrained on Imagenet
 - Single Frame classifier B6-EfficientNet pretrained on Imagenet (with Cutmix data augmentation)
-- Sequence of (5) frames classifier using an LSTM with B6-EfficientNet backbone with the cutmixed model as the pretrained weights while only training the head LSTM component of the network
+- Sequence of (5) frames classifier using an LSTM with B6-EfficientNet backbone with the cutmixed model as the pretrained weights while only training the head LSTM component of the network.
 
 | Deep Fake Detection Challenge        | Public Score           | Public LB Position  |Private Score  | Private LB Position  |
 | ------------- |:-------------:| -----:|-----:| -----:|
 |    | 0.24397 | 12/2265| 0.46099 | 18/2265 |
+
+![Example Experiments](images/sample_experiments.png)
 
 TODO (Update README with more details)
 
