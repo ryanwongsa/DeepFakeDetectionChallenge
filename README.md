@@ -13,6 +13,8 @@ The final sumbission used was an ensemble of 3 models:
 
 ![Example Experiments](images/sample_experiments.png)
 
+Attempted various approaches at deep fake audio detection but decided against including them in the final submission due to not performing well during training.
+
 TODO (Update README with more details)
 
 ## References
