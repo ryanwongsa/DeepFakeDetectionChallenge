@@ -15,7 +15,7 @@ The final sumbission used was an ensemble of 3 models:
 
 Attempted various approaches at deep fake audio detection but decided against including them in the final submission due to not performing well during training.
 
-TODO (Update README with more details)
+See [here](https://www.ryaniswong.com/post/kaggle-dfdc/) for write up about how I approaches this challenge.
 
 ## References
 
