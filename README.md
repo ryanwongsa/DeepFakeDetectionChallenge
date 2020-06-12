@@ -9,7 +9,7 @@ The final sumbission used was an ensemble of 3 models:
 
 | Deep Fake Detection Challenge        | Public Score           | Public LB Position  |Private Score  | Private LB Position  |
 | ------------- |:-------------:| -----:|-----:| -----:|
-|    | 0.24397 | 12/2265| 0.46099 | 16/2265 |
+|    | 0.24397 | 12/2265| 0.46099 | 15/2265 |
 
 ![Example Experiments](images/sample_experiments.png)
 
